@@ -43,7 +43,7 @@ resource "azurerm_service_plan" "api" {
   sku_name            = var.app_service_plan_sku
 
   tags = var.tags
-  
+
   depends_on = [
     azurerm_resource_group.main
   ]
@@ -58,9 +58,9 @@ resource "azurerm_linux_web_app" "api" {
 
   site_config {
     always_on = var.app_service_plan_sku != "F1" && var.app_service_plan_sku != "D1"
-    
+
     application_stack {
-      dotnet_version = "7.0"  # Modifica secondo le tue esigenze
+      dotnet_version = "8.0" # Modifica secondo le tue esigenze
     }
 
     cors {
@@ -98,7 +98,7 @@ resource "azurerm_application_insights" "main" {
   workspace_id        = azurerm_log_analytics_workspace.main.id
 
   tags = var.tags
-  
+
   depends_on = [
     azurerm_log_analytics_workspace.main
   ]
@@ -179,7 +179,7 @@ resource "azurerm_mssql_database" "main" {
   license_type   = "LicenseIncluded"
   sku_name       = var.sql_database_sku
   zone_redundant = false
-  
+
   # Disabilita geo-backup per regioni che non lo supportano (es: Italy North)
   geo_backup_enabled = false
 
