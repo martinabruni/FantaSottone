@@ -1,0 +1,212 @@
+name: Deploy FantaSottone
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  NODE_VERSION: "20.x"
+
+jobs:
+  # ==========================================
+  # BUILD BACKEND
+  # ==========================================
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore FantaSottone.sln
+
+      - name: Build
+        run: dotnet build FantaSottone.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test FantaSottone.sln --configuration Release --no-build --verbosity normal
+
+      - name: Publish
+        run: dotnet publish src/Apis/Internal.FantaSottone.Api/Internal.FantaSottone.Api.csproj --configuration Release --output ./publish --no-build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend
+          path: ./publish
+          retention-days: 1
+
+  # ==========================================
+  # BUILD FRONTEND
+  # ==========================================
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: src/Apis/Internal.FantaSottone.React/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src/Apis/Internal.FantaSottone.React
+        run: npm ci
+
+      - name: Build
+        working-directory: src/Apis/Internal.FantaSottone.React
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_URL }}
+          VITE_USE_MOCKS: "false"
+          VITE_AUTH_STRATEGY: "jwt"
+          VITE_POLLING_INTERVAL_MS: "3000"
+          VITE_APP_NAME: "FantaSottone"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend
+          path: src/Apis/Internal.FantaSottone.React/dist
+          retention-days: 1
+
+  # ==========================================
+  # DEPLOY DEV (automatico)
+  # ==========================================
+  deploy-dev:
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Download backend
+        uses: actions/download-artifact@v4
+        with:
+          name: backend
+          path: ./backend
+
+      - name: Download frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend
+          path: ./frontend
+
+      # Deploy Backend con Publish Profile
+      - name: Deploy Backend
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.WEB_API_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./backend
+
+      # Deploy Frontend con Deploy Token
+      - name: Deploy Frontend
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "./frontend"
+          skip_app_build: true
+          skip_api_build: true
+
+      # Health Checks
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health Check Backend
+        run: |
+          for i in {1..10}; do
+            if curl -f "${{ vars.API_URL }}/health"; then
+              echo "✅ Backend healthy"
+              exit 0
+            fi
+            echo "Waiting... ($i/10)"
+            sleep 10
+          done
+          echo "❌ Backend health check failed"
+          exit 1
+
+      - name: Health Check Frontend
+        run: |
+          if curl -f "${{ vars.FRONTEND_URL }}"; then
+            echo "✅ Frontend healthy"
+          else
+            echo "❌ Frontend health check failed"
+            exit 1
+          fi
+
+  # ==========================================
+  # DEPLOY PROD (con approval manuale)
+  # ==========================================
+  deploy-prod:
+    needs: [build-backend, build-frontend, deploy-dev]
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Download backend
+        uses: actions/download-artifact@v4
+        with:
+          name: backend
+          path: ./backend
+
+      - name: Download frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend
+          path: ./frontend
+
+      # Deploy Backend con Publish Profile
+      - name: Deploy Backend
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.WEB_API_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./backend
+
+      # Deploy Frontend con Deploy Token
+      - name: Deploy Frontend
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "./frontend"
+          skip_app_build: true
+          skip_api_build: true
+
+      # Health Checks
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health Check Backend
+        run: |
+          for i in {1..10}; do
+            if curl -f "${{ vars.API_URL }}/health"; then
+              echo "✅ Backend healthy"
+              exit 0
+            fi
+            echo "Waiting... ($i/10)"
+            sleep 10
+          done
+          echo "❌ Backend health check failed"
+          exit 1
+
+      - name: Health Check Frontend
+        run: |
+          if curl -f "${{ vars.FRONTEND_URL }}"; then
+            echo "✅ Frontend healthy"
+          else
+            echo "❌ Frontend health check failed"
+            exit 1
+          fi
