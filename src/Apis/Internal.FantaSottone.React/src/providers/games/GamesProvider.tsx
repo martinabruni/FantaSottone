@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useMemo } from "react";
-import { StartGameRequest, StartGameResponse } from "@/types/dto";
+import {
+  StartGameRequest,
+  StartGameResponse,
+  EndGameResponse,
+} from "@/types/dto";
 import { ITransport } from "@/lib/http/Transport";
 import { createTransport } from "@/lib/http/transportFactory";
 import { useAuth } from "../auth/AuthProvider";
 
 interface GamesContextValue {
   startGame: (request: StartGameRequest) => Promise<StartGameResponse>;
+  endGame: (gameId: number) => Promise<EndGameResponse>;
 }
 
 const GamesContext = createContext<GamesContextValue | undefined>(undefined);
@@ -26,8 +31,13 @@ export function GamesProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const endGame = async (gameId: number): Promise<EndGameResponse> => {
+    return transport.post<{}, EndGameResponse>(`/api/games/${gameId}/end`, {});
+  };
+
   const value: GamesContextValue = {
     startGame,
+    endGame,
   };
 
   return (

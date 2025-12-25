@@ -1,5 +1,10 @@
 import React, { createContext, useContext, useMemo } from "react";
-import { AssignRuleResponse, RuleWithAssignment } from "@/types/dto";
+import {
+  AssignRuleResponse,
+  RuleWithAssignment,
+  UpdateRuleRequest,
+  UpdateRuleResponse,
+} from "@/types/dto";
 import { ITransport } from "@/lib/http/Transport";
 import { createTransport } from "@/lib/http/transportFactory";
 import { useAuth } from "../auth/AuthProvider";
@@ -11,6 +16,11 @@ interface RulesContextValue {
     ruleId: number,
     playerId: number
   ) => Promise<AssignRuleResponse>;
+  updateRule: (
+    gameId: number,
+    ruleId: number,
+    request: UpdateRuleRequest
+  ) => Promise<UpdateRuleResponse>;
 }
 
 const RulesContext = createContext<RulesContextValue | undefined>(undefined);
@@ -37,9 +47,21 @@ export function RulesProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const updateRule = async (
+    gameId: number,
+    ruleId: number,
+    request: UpdateRuleRequest
+  ): Promise<UpdateRuleResponse> => {
+    return transport.put<UpdateRuleRequest, UpdateRuleResponse>(
+      `/api/games/${gameId}/rules/${ruleId}`,
+      request
+    );
+  };
+
   const value: RulesContextValue = {
     getRules,
     assignRule,
+    updateRule,
   };
 
   return (

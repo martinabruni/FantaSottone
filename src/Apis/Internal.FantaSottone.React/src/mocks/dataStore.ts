@@ -199,6 +199,15 @@ export class DataStore {
     return rule;
   }
 
+  updateRule(id: number, data: Partial<RuleEntity>): RuleEntity | undefined {
+    const rule = this.rules.get(id);
+    if (!rule) return undefined;
+
+    const updated = { ...rule, ...data, UpdatedAt: new Date().toISOString() };
+    this.rules.set(id, updated);
+    return updated;
+  }
+
   // Assignment methods
   getAssignment(id: number): RuleAssignmentEntity | undefined {
     return this.assignments.get(id);

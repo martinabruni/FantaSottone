@@ -8,8 +8,8 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({
-  title = "Something went wrong",
-  message = "An error occurred while loading data",
+  title = "Qualcosa è andato storto",
+  message = "Si è verificato un errore durante il caricamento dei dati",
   onRetry,
 }: ErrorStateProps) {
   return (
@@ -21,7 +21,7 @@ export function ErrorState({
       </div>
       {onRetry && (
         <Button onClick={onRetry} variant="outline">
-          Try Again
+          Riprova
         </Button>
       )}
     </div>

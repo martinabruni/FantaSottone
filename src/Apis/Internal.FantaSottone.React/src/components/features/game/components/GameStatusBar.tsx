@@ -5,8 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GameStatus } from "@/types/entities";
 import { Crown } from "lucide-react";
+import { useEffect } from "react";
 
-export function GameStatusBar() {
+interface GameStatusBarProps {
+  onStatusChange?: (status: GameStatus) => void;
+}
+
+export function GameStatusBar({ onStatusChange }: GameStatusBarProps) {
   const { gameId } = useParams<{ gameId: string }>();
   const { getGameStatus } = useAssignments();
 
@@ -22,14 +27,20 @@ export function GameStatusBar() {
     }
   );
 
+  useEffect(() => {
+    if (status && onStatusChange) {
+      onStatusChange(status.game.Status);
+    }
+  }, [status, onStatusChange]);
+
   if (!status) return null;
 
   const statusText =
     status.game.Status === GameStatus.Draft
-      ? "Draft"
+      ? "Bozza"
       : status.game.Status === GameStatus.Started
-      ? "In Progress"
-      : "Ended";
+      ? "In corso"
+      : "Terminata";
 
   const statusVariant =
     status.game.Status === GameStatus.Ended ? "default" : "secondary";
@@ -38,7 +49,7 @@ export function GameStatusBar() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Game Status</span>
+          <span>Stato partita</span>
           <Badge variant={statusVariant}>{statusText}</Badge>
         </CardTitle>
       </CardHeader>
@@ -47,9 +58,11 @@ export function GameStatusBar() {
           <div className="flex items-center gap-2 p-4 bg-primary/10 rounded-md">
             <Crown className="h-5 w-5 text-primary" />
             <div>
-              <p className="font-semibold">Winner: {status.winner.Username}</p>
+              <p className="font-semibold">
+                Vincitore: {status.winner.Username}
+              </p>
               <p className="text-sm text-muted-foreground">
-                Final Score: {status.winner.CurrentScore}
+                Punteggio finale: {status.winner.CurrentScore}
               </p>
             </div>
           </div>

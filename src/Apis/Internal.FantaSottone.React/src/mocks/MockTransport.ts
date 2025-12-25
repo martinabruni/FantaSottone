@@ -46,6 +46,12 @@ export class MockTransport implements ITransport {
           return handlers.startGame(data as never) as Promise<TRes>;
         }
 
+        // POST /api/games/{gameId}/end
+        if (parts[2] && parts[3] === "end") {
+          const gameId = parseInt(parts[2]);
+          return handlers.endGame(gameId) as Promise<TRes>;
+        }
+
         if (
           parts[2] &&
           parts[3] === "rules" &&
@@ -63,7 +69,26 @@ export class MockTransport implements ITransport {
     throw new Error(`Mock POST not implemented for: ${url}`);
   }
 
-  async put<TReq, TRes>(url: string, _data: TReq): Promise<TRes> {
+  async put<TReq, TRes>(url: string, data: TReq): Promise<TRes> {
+    const parts = url.split("/").filter(Boolean);
+
+    if (parts[0] === "api") {
+      if (
+        parts[1] === "games" &&
+        parts[2] &&
+        parts[3] === "rules" &&
+        parts[4]
+      ) {
+        const gameId = parseInt(parts[2]);
+        const ruleId = parseInt(parts[4]);
+        return handlers.updateRule(
+          gameId,
+          ruleId,
+          data as never
+        ) as Promise<TRes>;
+      }
+    }
+
     throw new Error(`Mock PUT not implemented for: ${url}`);
   }
 
