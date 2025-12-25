@@ -9,26 +9,14 @@ interface ActionButtonProps extends Omit<ButtonProps, "variant"> {
   actionType?: ActionType;
 }
 
-const actionVariants: Record<
-  ActionType,
-  { className: string; hoverClassName: string }
-> = {
-  info: {
-    className: "bg-blue-600 text-white hover:bg-blue-700",
-    hoverClassName: "hover:bg-blue-700",
-  },
-  success: {
-    className: "bg-green-600 text-white hover:bg-green-700",
-    hoverClassName: "hover:bg-green-700",
-  },
-  warning: {
-    className: "bg-orange-600 text-white hover:bg-orange-700",
-    hoverClassName: "hover:bg-orange-700",
-  },
-  error: {
-    className: "bg-red-600 text-white hover:bg-red-700",
-    hoverClassName: "hover:bg-red-700",
-  },
+const actionVariants: Record<ActionType, string> = {
+  info: "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-md",
+  success:
+    "bg-green-600 text-white hover:bg-green-700 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-md",
+  warning:
+    "bg-orange-600 text-white hover:bg-orange-700 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-md",
+  error:
+    "bg-red-600 text-white hover:bg-red-700 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-md",
 };
 
 export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
@@ -38,7 +26,11 @@ export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
     return (
       <Button
         ref={ref}
-        className={cn(variantClass.className, className)}
+        className={cn(
+          "transition-all duration-200 ease-in-out",
+          variantClass,
+          className
+        )}
         {...props}
       >
         {children}
