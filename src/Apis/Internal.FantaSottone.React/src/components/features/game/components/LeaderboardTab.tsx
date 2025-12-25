@@ -54,7 +54,9 @@ export function LeaderboardTab() {
           <div
             key={player.Id}
             className={`flex items-center justify-between p-4 rounded-lg border ${
-              isCurrentPlayer ? "bg-primary/5 border-primary" : "bg-card"
+              isCurrentPlayer
+                ? "bg-blue-50 border-blue-400 dark:bg-blue-950/40 dark:border-blue-800"
+                : "bg-card"
             }`}
           >
             <div className="flex items-center gap-4">

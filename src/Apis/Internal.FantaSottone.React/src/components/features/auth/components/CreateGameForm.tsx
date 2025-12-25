@@ -105,7 +105,7 @@ export function CreateGameForm() {
 
     if (!gameName || !initialScore) {
       toast({
-        variant: "destructive",
+        variant: "error",
         title: "Errore di validazione",
         description: "Inserisci nome partita e punteggio iniziale",
       });
@@ -114,7 +114,7 @@ export function CreateGameForm() {
 
     if (players.some((p) => !p.username || !p.accessCode)) {
       toast({
-        variant: "destructive",
+        variant: "error",
         title: "Errore di validazione",
         description: "Tutti i giocatori devono avere nome utente e codice di accesso",
       });
@@ -123,7 +123,7 @@ export function CreateGameForm() {
 
     if (rules.some((r) => !r.name)) {
       toast({
-        variant: "destructive",
+        variant: "error",
         title: "Errore di validazione",
         description: "Tutte le regole devono avere un nome",
       });
@@ -152,12 +152,13 @@ export function CreateGameForm() {
       setShowCredentials(true);
 
       toast({
+        variant: "success",
         title: "Partita creata!",
         description: "Salva le credenziali qui sotto per accedere alla partita",
       });
     } catch (error) {
       toast({
-        variant: "destructive",
+        variant: "error",
         title: "Creazione partita non riuscita",
         description:
           error instanceof Error ? error.message : "Si e verificato un errore",

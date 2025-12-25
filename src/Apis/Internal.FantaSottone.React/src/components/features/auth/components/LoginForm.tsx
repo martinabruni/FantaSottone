@@ -27,7 +27,7 @@ export function LoginForm() {
 
     if (!username || !accessCode) {
       toast({
-        variant: "destructive",
+        variant: "error",
         title: "Errore di validazione",
         description: "Compila tutti i campi",
       });
@@ -41,20 +41,21 @@ export function LoginForm() {
 
       if (result) {
         toast({
+          variant: "success",
           title: "Accesso riuscito",
           description: `Benvenuto, ${result.player.Username}!`,
         });
         navigate(`/game/${result.game.Id}`);
       } else {
         toast({
-          variant: "destructive",
+          variant: "error",
           title: "Accesso non riuscito",
           description: "Credenziali non valide",
         });
       }
     } catch (error) {
       toast({
-        variant: "destructive",
+        variant: "error",
         title: "Accesso non riuscito",
         description:
           error instanceof Error ? error.message : "Si e verificato un errore",

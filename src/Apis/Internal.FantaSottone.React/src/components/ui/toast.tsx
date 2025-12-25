@@ -4,6 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { toastVariantClasses } from "@/components/common/toastStyles";
 
 const ToastProvider = ToastPrimitives.Provider;
 
@@ -27,9 +28,12 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: "border bg-background text-foreground",
-        destructive:
-          "destructive group border-destructive bg-destructive text-destructive-foreground",
+        default: toastVariantClasses.default,
+        info: `info group ${toastVariantClasses.info}`,
+        success: `success group ${toastVariantClasses.success}`,
+        warning: `warning group ${toastVariantClasses.warning}`,
+        error: `error destructive group ${toastVariantClasses.error}`,
+        destructive: `destructive group ${toastVariantClasses.destructive}`,
       },
     },
     defaultVariants: {
