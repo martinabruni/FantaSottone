@@ -81,7 +81,7 @@ export function EditRuleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent variant="warning">
         <DialogHeader>
           <DialogTitle>Modifica regola</DialogTitle>
           <DialogDescription>

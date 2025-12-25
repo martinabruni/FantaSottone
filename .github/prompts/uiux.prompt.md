@@ -26,3 +26,11 @@ name: uiux
   - **disabled**: stato chiaramente distinguibile (opacità + cursore + niente hover).
 - Mantieni animazioni **fluide e rapide** (transizioni brevi) e consistenti su tutta l’app.
 - Centralizza lo styling con un sistema riusabile (es. `ActionButton` o `buttonVariants`) per evitare duplicazioni.
+
+## Lingua
+
+- tutte le label devono essere scritte in italiano
+
+## bug visivi
+
+- i dialog hanno background trasparente, usa il pattern info/warning/success/error per definire il color del backgrund

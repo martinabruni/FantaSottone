@@ -37,7 +37,7 @@ export function EndGameDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent variant="error">
         <DialogHeader>
           <DialogTitle>Terminare la partita?</DialogTitle>
           <DialogDescription>

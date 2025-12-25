@@ -54,12 +54,13 @@ export function GamePage() {
       const response = await endGame(parseInt(gameId));
       setGameStatus(response.game.Status);
       toast({
+        variant: "success",
         title: "Partita terminata",
         description: `Vincitore: ${response.winner.Username} con ${response.winner.CurrentScore} punti!`,
       });
     } catch (error) {
       toast({
-        variant: "destructive",
+        variant: "error",
         title: "Errore",
         description:
           error instanceof Error

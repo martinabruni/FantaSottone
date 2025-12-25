@@ -27,9 +27,9 @@ export function LoginForm() {
 
     if (!username || !accessCode) {
       toast({
-        variant: "destructive",
-        title: "Validation error",
-        description: "Please fill in all fields",
+        variant: "error",
+        title: "Errore di validazione",
+        description: "Compila tutti i campi",
       });
       return;
     }
@@ -41,23 +41,24 @@ export function LoginForm() {
 
       if (result) {
         toast({
-          title: "Login successful",
-          description: `Welcome, ${result.player.Username}!`,
+          variant: "success",
+          title: "Accesso riuscito",
+          description: `Benvenuto, ${result.player.Username}!`,
         });
         navigate(`/game/${result.game.Id}`);
       } else {
         toast({
-          variant: "destructive",
-          title: "Login failed",
-          description: "Invalid credentials",
+          variant: "error",
+          title: "Accesso non riuscito",
+          description: "Credenziali non valide",
         });
       }
     } catch (error) {
       toast({
-        variant: "destructive",
-        title: "Login failed",
+        variant: "error",
+        title: "Accesso non riuscito",
         description:
-          error instanceof Error ? error.message : "An error occurred",
+          error instanceof Error ? error.message : "Si e verificato un errore",
       });
     } finally {
       setLoading(false);
@@ -67,42 +68,42 @@ export function LoginForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Join Game</CardTitle>
+        <CardTitle>Entra in partita</CardTitle>
         <CardDescription>
-          Enter your credentials to join an existing game
+          Inserisci le tue credenziali per entrare in una partita esistente
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username">Nome utente</Label>
             <Input
               id="username"
               type="text"
-              placeholder="Enter your username"
+              placeholder="Inserisci il nome utente"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={loading}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="accessCode">Access Code</Label>
+            <Label htmlFor="accessCode">Codice di accesso</Label>
             <Input
               id="accessCode"
               type="password"
-              placeholder="Enter your access code"
+              placeholder="Inserisci il codice di accesso"
               value={accessCode}
               onChange={(e) => setAccessCode(e.target.value)}
               disabled={loading}
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Accesso in corso..." : "Accedi"}
           </Button>
           <div className="text-xs text-muted-foreground space-y-1">
-            <p>Test credentials:</p>
-            <p>Username: test1, Code: code1 (Creator)</p>
-            <p>Username: test2, Code: code2 (Player)</p>
+            <p>Credenziali di test:</p>
+            <p>Nome utente: test1, Codice: code1 (Creatore)</p>
+            <p>Nome utente: test2, Codice: code2 (Giocatore)</p>
           </div>
         </form>
       </CardContent>

@@ -105,27 +105,27 @@ export function CreateGameForm() {
 
     if (!gameName || !initialScore) {
       toast({
-        variant: "destructive",
-        title: "Validation error",
-        description: "Please fill in game name and initial score",
+        variant: "error",
+        title: "Errore di validazione",
+        description: "Inserisci nome partita e punteggio iniziale",
       });
       return;
     }
 
     if (players.some((p) => !p.username || !p.accessCode)) {
       toast({
-        variant: "destructive",
-        title: "Validation error",
-        description: "All players must have username and access code",
+        variant: "error",
+        title: "Errore di validazione",
+        description: "Tutti i giocatori devono avere nome utente e codice di accesso",
       });
       return;
     }
 
     if (rules.some((r) => !r.name)) {
       toast({
-        variant: "destructive",
-        title: "Validation error",
-        description: "All rules must have a name",
+        variant: "error",
+        title: "Errore di validazione",
+        description: "Tutte le regole devono avere un nome",
       });
       return;
     }
@@ -152,15 +152,16 @@ export function CreateGameForm() {
       setShowCredentials(true);
 
       toast({
-        title: "Game created!",
-        description: "Save the credentials below to access the game",
+        variant: "success",
+        title: "Partita creata!",
+        description: "Salva le credenziali qui sotto per accedere alla partita",
       });
     } catch (error) {
       toast({
-        variant: "destructive",
-        title: "Failed to create game",
+        variant: "error",
+        title: "Creazione partita non riuscita",
         description:
-          error instanceof Error ? error.message : "An error occurred",
+          error instanceof Error ? error.message : "Si e verificato un errore",
       });
     } finally {
       setLoading(false);
@@ -171,9 +172,9 @@ export function CreateGameForm() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Game Created!</CardTitle>
+          <CardTitle>Partita creata!</CardTitle>
           <CardDescription>
-            Share these credentials with your players
+            Condividi queste credenziali con i giocatori
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -182,16 +183,16 @@ export function CreateGameForm() {
               <div key={idx} className="p-3 border rounded-md space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{cred.username}</span>
-                  {idx === 0 && <Badge variant="secondary">Creator</Badge>}
+                  {idx === 0 && <Badge variant="secondary">Creatore</Badge>}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Code: {cred.accessCode}
+                  Codice: {cred.accessCode}
                 </p>
               </div>
             ))}
           </div>
           <Button onClick={() => navigate("/")} className="w-full">
-            Go to Login
+            Vai al login
           </Button>
         </CardContent>
       </Card>
@@ -201,19 +202,19 @@ export function CreateGameForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create New Game</CardTitle>
+        <CardTitle>Crea nuova partita</CardTitle>
         <CardDescription>
-          Setup a new game with players and rules
+          Configura una nuova partita con giocatori e regole
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="gameName">Game Name</Label>
+            <Label htmlFor="gameName">Nome partita</Label>
             <Input
               id="gameName"
               type="text"
-              placeholder="Enter game name"
+              placeholder="Inserisci il nome della partita"
               value={gameName}
               onChange={(e) => setGameName(e.target.value)}
               disabled={loading}
@@ -221,7 +222,7 @@ export function CreateGameForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="initialScore">Initial Score</Label>
+            <Label htmlFor="initialScore">Punteggio iniziale</Label>
             <Input
               id="initialScore"
               type="number"
@@ -236,7 +237,7 @@ export function CreateGameForm() {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label>Players</Label>
+              <Label>Giocatori</Label>
               <Button
                 type="button"
                 size="sm"
@@ -244,14 +245,14 @@ export function CreateGameForm() {
                 onClick={addPlayer}
                 disabled={loading}
               >
-                <Plus className="h-4 w-4 mr-1" /> Add Player
+                <Plus className="h-4 w-4 mr-1" /> Aggiungi giocatore
               </Button>
             </div>
             {players.map((player, idx) => (
               <div key={player.id} className="flex gap-2 items-end">
                 <div className="flex-1 space-y-2">
                   <Input
-                    placeholder="Username"
+                    placeholder="Nome utente"
                     value={player.username}
                     onChange={(e) =>
                       updatePlayer(player.id, "username", e.target.value)
@@ -262,7 +263,7 @@ export function CreateGameForm() {
                 <div className="flex-1 space-y-2">
                   <Input
                     type="password"
-                    placeholder="Access code"
+                    placeholder="Codice di accesso"
                     value={player.accessCode}
                     onChange={(e) =>
                       updatePlayer(player.id, "accessCode", e.target.value)
@@ -272,7 +273,7 @@ export function CreateGameForm() {
                 </div>
                 {idx === 0 ? (
                   <Badge variant="secondary" className="h-10 px-3">
-                    Creator
+                    Creatore
                   </Badge>
                 ) : (
                   <Button
@@ -293,7 +294,7 @@ export function CreateGameForm() {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label>Rules</Label>
+              <Label>Regole</Label>
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -319,7 +320,7 @@ export function CreateGameForm() {
               <div key={rule.id} className="flex gap-2 items-end">
                 <div className="flex-1">
                   <Input
-                    placeholder="Rule name"
+                    placeholder="Nome regola"
                     value={rule.name}
                     onChange={(e) =>
                       updateRule(rule.id, "name", e.target.value)
@@ -330,7 +331,7 @@ export function CreateGameForm() {
                 <div className="w-24">
                   <Input
                     type="number"
-                    placeholder="Score"
+                    placeholder="Punteggio"
                     value={rule.scoreDelta}
                     onChange={(e) =>
                       updateRule(
@@ -364,7 +365,7 @@ export function CreateGameForm() {
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creating..." : "Create Game"}
+            {loading ? "Creazione..." : "Crea partita"}
           </Button>
         </form>
       </CardContent>

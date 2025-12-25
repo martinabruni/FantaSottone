@@ -48,6 +48,7 @@ export function RulesTab() {
       await assignRule(parseInt(gameId), ruleId, session.playerId);
 
       toast({
+        variant: "success",
         title: "Regola assegnata!",
         description: "Il tuo punteggio è stato aggiornato",
       });
@@ -57,14 +58,14 @@ export function RulesTab() {
     } catch (err) {
       if (err instanceof ConflictError) {
         toast({
-          variant: "destructive",
+          variant: "error",
           title: "Regola già assegnata",
           description: "Qualcun altro l'ha reclamata per primo!",
         });
         await refetch();
       } else {
         toast({
-          variant: "destructive",
+          variant: "error",
           title: "Assegnazione fallita",
           description:
             err instanceof Error ? err.message : "Si è verificato un errore",
@@ -82,6 +83,7 @@ export function RulesTab() {
       await updateRule(parseInt(gameId), editingRule.id, data);
 
       toast({
+        variant: "success",
         title: "Regola modificata",
         description: "La regola è stata aggiornata con successo",
       });
@@ -91,7 +93,7 @@ export function RulesTab() {
     } catch (err) {
       if (err instanceof ConflictError) {
         toast({
-          variant: "destructive",
+          variant: "error",
           title: "Modifica non permessa",
           description:
             "Questa regola è già stata assegnata e non può essere modificata",
@@ -99,7 +101,7 @@ export function RulesTab() {
         await refetch();
       } else {
         toast({
-          variant: "destructive",
+          variant: "error",
           title: "Modifica fallita",
           description:
             err instanceof Error ? err.message : "Si è verificato un errore",
@@ -135,7 +137,9 @@ export function RulesTab() {
             <div
               key={rule.Id}
               className={`flex items-center justify-between p-4 rounded-lg border ${
-                isAssignedToMe ? "bg-primary/5 border-primary" : "bg-card"
+                isAssignedToMe
+                  ? "bg-blue-50 border-blue-400 dark:bg-blue-950/40 dark:border-blue-800"
+                  : "bg-card"
               }`}
             >
               <div className="flex-1">

@@ -9,36 +9,22 @@ interface ActionButtonProps extends Omit<ButtonProps, "variant"> {
   actionType?: ActionType;
 }
 
-const actionVariants: Record<
-  ActionType,
-  { className: string; hoverClassName: string }
-> = {
-  info: {
-    className: "bg-blue-600 text-white hover:bg-blue-700",
-    hoverClassName: "hover:bg-blue-700",
-  },
-  success: {
-    className: "bg-green-600 text-white hover:bg-green-700",
-    hoverClassName: "hover:bg-green-700",
-  },
-  warning: {
-    className: "bg-orange-600 text-white hover:bg-orange-700",
-    hoverClassName: "hover:bg-orange-700",
-  },
-  error: {
-    className: "bg-red-600 text-white hover:bg-red-700",
-    hoverClassName: "hover:bg-red-700",
-  },
+const actionVariants: Record<ActionType, ButtonProps["variant"]> = {
+  info: "info",
+  success: "success",
+  warning: "warning",
+  error: "error",
 };
 
 export const ActionButton = forwardRef<HTMLButtonElement, ActionButtonProps>(
   ({ actionType = "info", className, children, ...props }, ref) => {
-    const variantClass = actionVariants[actionType];
+    const variant = actionVariants[actionType];
 
     return (
       <Button
         ref={ref}
-        className={cn(variantClass.className, className)}
+        variant={variant}
+        className={cn(className)}
         {...props}
       >
         {children}
