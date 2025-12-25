@@ -52,6 +52,13 @@ export class MockTransport implements ITransport {
           return handlers.endGame(gameId) as Promise<TRes>;
         }
 
+        // POST /api/games/{gameId}/rules - create rule
+        if (parts[2] && parts[3] === "rules" && !parts[4]) {
+          const gameId = parseInt(parts[2]);
+          return handlers.createRule(gameId, data as never) as Promise<TRes>;
+        }
+
+        // POST /api/games/{gameId}/rules/{ruleId}/assign
         if (
           parts[2] &&
           parts[3] === "rules" &&
@@ -93,6 +100,22 @@ export class MockTransport implements ITransport {
   }
 
   async delete<T>(url: string): Promise<T> {
+    const parts = url.split("/").filter(Boolean);
+
+    if (parts[0] === "api") {
+      // DELETE /api/games/{gameId}/rules/{ruleId}
+      if (
+        parts[1] === "games" &&
+        parts[2] &&
+        parts[3] === "rules" &&
+        parts[4]
+      ) {
+        const gameId = parseInt(parts[2]);
+        const ruleId = parseInt(parts[4]);
+        return handlers.deleteRule(gameId, ruleId) as Promise<T>;
+      }
+    }
+
     throw new Error(`Mock DELETE not implemented for: ${url}`);
   }
 }

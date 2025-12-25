@@ -11,12 +11,15 @@ import {
   EndGameResponse,
   UpdateRuleRequest,
   UpdateRuleResponse,
+  CreateRuleRequest,
+  CreateRuleResponse,
 } from "@/types/dto";
 import { dataStore } from "./dataStore";
 import {
   ConflictError,
   NotFoundError,
   UnauthorizedError,
+  ForbiddenError,
 } from "@/lib/http/errors";
 import { GameStatus } from "@/types/entities";
 
@@ -61,38 +64,61 @@ export const handlers = {
   startGame: async (request: StartGameRequest): Promise<StartGameResponse> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // Create game
+    // Step 1: Create creator player first
+    const creatorData = request.players.find((p) => p.isCreator);
+    if (!creatorData) {
+      throw new Error("At least one player must be marked as creator");
+    }
+
+    const creatorPlayer = dataStore.createPlayer({
+      GameId: 0, // Temporary
+      Username: creatorData.username,
+      AccessCode: creatorData.accessCode,
+      IsCreator: true,
+      CurrentScore: request.initialScore,
+    });
+
+    // Step 2: Create game
     const game = dataStore.createGame({
       Name: request.name,
       InitialScore: request.initialScore,
       Status: GameStatus.Started,
-      CreatorPlayerId: undefined,
+      CreatorPlayerId: creatorPlayer.Id,
       WinnerPlayerId: null,
     });
 
-    // Create players
-    const credentials: StartGameResponse["credentials"] = [];
-    request.players.forEach((p, index) => {
-      const player = dataStore.createPlayer({
-        GameId: game.Id,
-        Username: p.username,
-        AccessCode: p.accessCode,
-        IsCreator: p.isCreator ?? index === 0,
-        CurrentScore: request.initialScore,
+    // Step 3: Update creator with gameId
+    creatorPlayer.GameId = game.Id;
+    dataStore.updatePlayer(creatorPlayer.Id, { GameId: game.Id });
+
+    // Step 4: Create other players
+    const credentials: StartGameResponse["credentials"] = [
+      {
+        username: creatorPlayer.Username,
+        accessCode: creatorPlayer.AccessCode,
+        isCreator: true,
+      },
+    ];
+
+    request.players
+      .filter((p) => !p.isCreator)
+      .forEach((p) => {
+        const player = dataStore.createPlayer({
+          GameId: game.Id,
+          Username: p.username,
+          AccessCode: p.accessCode,
+          IsCreator: false,
+          CurrentScore: request.initialScore,
+        });
+
+        credentials.push({
+          username: player.Username,
+          accessCode: player.AccessCode,
+          isCreator: false,
+        });
       });
 
-      if (player.IsCreator && !game.CreatorPlayerId) {
-        dataStore.updateGame(game.Id, { CreatorPlayerId: player.Id });
-      }
-
-      credentials.push({
-        username: player.Username,
-        accessCode: player.AccessCode,
-        isCreator: player.IsCreator,
-      });
-    });
-
-    // Create rules
+    // Step 5: Create rules
     request.rules.forEach((r) => {
       dataStore.createRule({
         GameId: game.Id,
@@ -164,6 +190,55 @@ export const handlers = {
         assignment: assignmentData,
       };
     });
+  },
+
+  createRule: async (
+    gameId: number,
+    request: CreateRuleRequest
+  ): Promise<CreateRuleResponse> => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const game = dataStore.getGame(gameId);
+    if (!game) {
+      throw new NotFoundError("Game not found");
+    }
+
+    const rule = dataStore.createRule({
+      GameId: gameId,
+      Name: request.name,
+      RuleType: request.ruleType,
+      ScoreDelta: request.scoreDelta,
+    });
+
+    return {
+      rule: {
+        Id: rule.Id,
+        Name: rule.Name,
+        RuleType: rule.RuleType,
+        ScoreDelta: rule.ScoreDelta,
+      },
+    };
+  },
+
+  deleteRule: async (gameId: number, ruleId: number): Promise<void> => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const rule = dataStore.getRule(ruleId);
+    if (!rule) {
+      throw new NotFoundError("Rule not found");
+    }
+
+    if (rule.GameId !== gameId) {
+      throw new Error("Rule does not belong to this game");
+    }
+
+    // Check if assigned
+    const assignment = dataStore.getAssignmentByRuleId(ruleId);
+    if (assignment) {
+      throw new ConflictError("Cannot delete a rule that has already been assigned");
+    }
+
+    dataStore.deleteRule(ruleId);
   },
 
   assignRule: async (

@@ -8,15 +8,16 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { ActionButton } from "@/components/common/ActionButton";
 import { Badge } from "@/components/ui/badge";
 import { RuleType } from "@/types/entities";
-import { Clock, CheckCircle2, Pencil } from "lucide-react";
+import { Clock, CheckCircle2, Pencil, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import { useState } from "react";
 import { ConflictError } from "@/lib/http/errors";
 import { EditRuleDialog, EditRuleData } from "./EditRuleDialog";
+import { CreateRuleDialog, CreateRuleData } from "./CreateRuleDialog";
 
 export function RulesTab() {
   const { gameId } = useParams<{ gameId: string }>();
-  const { getRules, assignRule, updateRule } = useRules();
+  const { getRules, assignRule, updateRule, createRule, deleteRule } = useRules();
   const { session } = useAuth();
   const { toast } = useToast();
   const [assigning, setAssigning] = useState<number | null>(null);
@@ -24,6 +25,8 @@ export function RulesTab() {
     id: number;
     data: EditRuleData;
   } | null>(null);
+  const [creatingRule, setCreatingRule] = useState(false);
+  const [deletingRule, setDeletingRule] = useState<number | null>(null);
 
   const pollingInterval = parseInt(
     import.meta.env.VITE_POLLING_INTERVAL_MS || "3000"
@@ -53,7 +56,6 @@ export function RulesTab() {
         description: "Il tuo punteggio è stato aggiornato",
       });
 
-      // Refetch to update UI
       await refetch();
     } catch (err) {
       if (err instanceof ConflictError) {
@@ -110,107 +112,194 @@ export function RulesTab() {
     }
   };
 
+  const handleCreateRule = async (data: CreateRuleData) => {
+    if (!gameId) return;
+
+    try {
+      await createRule(parseInt(gameId), data);
+
+      toast({
+        variant: "success",
+        title: "Regola creata",
+        description: "La nuova regola è stata aggiunta alla partita",
+      });
+
+      await refetch();
+    } catch (err) {
+      toast({
+        variant: "error",
+        title: "Creazione fallita",
+        description:
+          err instanceof Error ? err.message : "Si è verificato un errore",
+      });
+    }
+  };
+
+  const handleDeleteRule = async (ruleId: number) => {
+    if (!gameId) return;
+
+    setDeletingRule(ruleId);
+
+    try {
+      await deleteRule(parseInt(gameId), ruleId);
+
+      toast({
+        variant: "success",
+        title: "Regola eliminata",
+        description: "La regola è stata rimossa dalla partita",
+      });
+
+      await refetch();
+    } catch (err) {
+      if (err instanceof ConflictError) {
+        toast({
+          variant: "error",
+          title: "Eliminazione non permessa",
+          description:
+            "Questa regola è già stata assegnata e non può essere eliminata",
+        });
+        await refetch();
+      } else {
+        toast({
+          variant: "error",
+          title: "Eliminazione fallita",
+          description:
+            err instanceof Error ? err.message : "Si è verificato un errore",
+        });
+      }
+    } finally {
+      setDeletingRule(null);
+    }
+  };
+
   if (loading && !rules)
     return <LoadingState message="Caricamento regole..." />;
   if (error) return <ErrorState message={error.message} onRetry={refetch} />;
-  if (!rules || rules.length === 0)
-    return (
-      <EmptyState
-        title="Nessuna regola"
-        message="Non ci sono regole definite per questa partita"
-      />
-    );
 
   const isCreator = session?.role === "creator";
 
   return (
     <>
-      <div className="space-y-3">
-        {rules.map(({ rule, assignment }) => {
-          const isAssigned = !!assignment;
-          const isAssignedToMe =
-            assignment?.assignedToPlayerId === session?.playerId;
-          const canAssign = !isAssigned && !assigning;
-          const canEdit = isCreator && !isAssigned;
-
-          return (
-            <div
-              key={rule.Id}
-              className={`flex items-center justify-between p-4 rounded-lg border ${
-                isAssignedToMe
-                  ? "bg-blue-50 border-blue-400 dark:bg-blue-950/40 dark:border-blue-800"
-                  : "bg-card"
-              }`}
+      <div className="space-y-4">
+        {isCreator && (
+          <div className="flex justify-end">
+            <ActionButton
+              actionType="success"
+              size="sm"
+              onClick={() => setCreatingRule(true)}
             >
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="font-semibold">{rule.Name}</span>
-                  <Badge
-                    variant={
-                      rule.RuleType === RuleType.Bonus
-                        ? "default"
-                        : "destructive"
-                    }
-                  >
-                    {rule.RuleType === RuleType.Bonus ? "Bonus" : "Malus"}{" "}
-                    {rule.ScoreDelta > 0 ? "+" : ""}
-                    {rule.ScoreDelta}
-                  </Badge>
+              <Plus className="h-4 w-4 mr-1" />
+              Crea nuova regola
+            </ActionButton>
+          </div>
+        )}
+
+        {!rules || rules.length === 0 ? (
+          <EmptyState
+            title="Nessuna regola"
+            message="Non ci sono regole definite per questa partita"
+          />
+        ) : (
+          rules.map(({ rule, assignment }) => {
+            const isAssigned = !!assignment;
+            const isAssignedToMe =
+              assignment?.assignedToPlayerId === session?.playerId;
+            const canAssign = !isAssigned && !assigning;
+            const canEdit = isCreator && !isAssigned;
+            const canDelete = isCreator && !isAssigned;
+
+            return (
+              <div
+                key={rule.Id}
+                className={`flex items-center justify-between p-4 rounded-lg border ${
+                  isAssignedToMe
+                    ? "bg-blue-50 border-blue-400 dark:bg-blue-950/40 dark:border-blue-800"
+                    : "bg-card"
+                }`}
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold">{rule.Name}</span>
+                    <Badge
+                      variant={
+                        rule.RuleType === RuleType.Bonus
+                          ? "default"
+                          : "destructive"
+                      }
+                    >
+                      {rule.RuleType === RuleType.Bonus ? "Bonus" : "Malus"}{" "}
+                      {rule.ScoreDelta > 0 ? "+" : ""}
+                      {rule.ScoreDelta}
+                    </Badge>
+                  </div>
+
+                  {isAssigned && assignment && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>
+                        Assegnata a{" "}
+                        <strong>{assignment.assignedToUsername}</strong>
+                      </span>
+                      <Clock className="h-3 w-3 ml-2" />
+                      <span>
+                        {new Date(assignment.assignedAt).toLocaleString(
+                          "it-IT"
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {isAssigned && assignment && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>
-                      Assegnata a{" "}
-                      <strong>{assignment.assignedToUsername}</strong>
-                    </span>
-                    <Clock className="h-3 w-3 ml-2" />
-                    <span>
-                      {new Date(assignment.assignedAt).toLocaleString("it-IT")}
-                    </span>
-                  </div>
-                )}
-              </div>
+                <div className="flex gap-2">
+                  {canDelete && (
+                    <ActionButton
+                      actionType="error"
+                      size="sm"
+                      onClick={() => handleDeleteRule(rule.Id)}
+                      disabled={deletingRule === rule.Id}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </ActionButton>
+                  )}
 
-              <div className="flex gap-2">
-                {canEdit && (
+                  {canEdit && (
+                    <ActionButton
+                      actionType="warning"
+                      size="sm"
+                      onClick={() =>
+                        setEditingRule({
+                          id: rule.Id,
+                          data: {
+                            name: rule.Name,
+                            ruleType: rule.RuleType,
+                            scoreDelta: rule.ScoreDelta,
+                          },
+                        })
+                      }
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </ActionButton>
+                  )}
+
                   <ActionButton
-                    actionType="warning"
+                    actionType={isAssignedToMe ? "info" : "success"}
+                    onClick={() => handleAssign(rule.Id)}
+                    disabled={!canAssign || assigning === rule.Id}
                     size="sm"
-                    onClick={() =>
-                      setEditingRule({
-                        id: rule.Id,
-                        data: {
-                          name: rule.Name,
-                          ruleType: rule.RuleType,
-                          scoreDelta: rule.ScoreDelta,
-                        },
-                      })
-                    }
                   >
-                    <Pencil className="h-4 w-4" />
+                    {assigning === rule.Id
+                      ? "Assegnando..."
+                      : isAssignedToMe
+                      ? "Assegnata a te"
+                      : isAssigned
+                      ? "Assegnata"
+                      : "Assegna a me"}
                   </ActionButton>
-                )}
-
-                <ActionButton
-                  actionType={isAssignedToMe ? "info" : "success"}
-                  onClick={() => handleAssign(rule.Id)}
-                  disabled={!canAssign || assigning === rule.Id}
-                  size="sm"
-                >
-                  {assigning === rule.Id
-                    ? "Assegnando..."
-                    : isAssignedToMe
-                    ? "Assegnata a te"
-                    : isAssigned
-                    ? "Assegnata"
-                    : "Assegna a me"}
-                </ActionButton>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       <EditRuleDialog
@@ -218,6 +307,12 @@ export function RulesTab() {
         onOpenChange={(open) => !open && setEditingRule(null)}
         onConfirm={handleEditRule}
         initialData={editingRule?.data}
+      />
+
+      <CreateRuleDialog
+        open={creatingRule}
+        onOpenChange={setCreatingRule}
+        onConfirm={handleCreateRule}
       />
     </>
   );

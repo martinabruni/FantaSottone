@@ -208,6 +208,10 @@ export class DataStore {
     return updated;
   }
 
+  deleteRule(id: number): boolean {
+    return this.rules.delete(id);
+  }
+
   // Assignment methods
   getAssignment(id: number): RuleAssignmentEntity | undefined {
     return this.assignments.get(id);

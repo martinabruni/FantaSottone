@@ -137,7 +137,22 @@ export interface EndGameResponse {
   }>;
 }
 
-// Update Rule DTOs
+// Rule Management DTOs
+export interface CreateRuleRequest {
+  name: string;
+  ruleType: RuleType;
+  scoreDelta: number;
+}
+
+export interface CreateRuleResponse {
+  rule: {
+    Id: number;
+    Name: string;
+    RuleType: RuleType;
+    ScoreDelta: number;
+  };
+}
+
 export interface UpdateRuleRequest {
   name: string;
   ruleType: RuleType;
