@@ -28,11 +28,14 @@ export function LeaderboardTab() {
   });
 
   if (loading && !leaderboard)
-    return <LoadingState message="Loading leaderboard..." />;
+    return <LoadingState message="Caricamento classifica..." />;
   if (error) return <ErrorState message={error.message} onRetry={refetch} />;
   if (!leaderboard || leaderboard.length === 0)
     return (
-      <EmptyState title="No players" message="No players in this game yet" />
+      <EmptyState
+        title="Nessun giocatore"
+        message="Non ci sono ancora giocatori in questa partita"
+      />
     );
 
   const getRankIcon = (index: number) => {
@@ -61,14 +64,16 @@ export function LeaderboardTab() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{player.Username}</span>
-                  {isCurrentPlayer && <Badge variant="secondary">You</Badge>}
-                  {player.IsCreator && <Badge variant="outline">Creator</Badge>}
+                  {isCurrentPlayer && <Badge variant="secondary">Tu</Badge>}
+                  {player.IsCreator && (
+                    <Badge variant="outline">Creatore</Badge>
+                  )}
                 </div>
               </div>
             </div>
             <div className="text-right">
               <span className="text-2xl font-bold">{player.CurrentScore}</span>
-              <p className="text-xs text-muted-foreground">points</p>
+              <p className="text-xs text-muted-foreground">punti</p>
             </div>
           </div>
         );

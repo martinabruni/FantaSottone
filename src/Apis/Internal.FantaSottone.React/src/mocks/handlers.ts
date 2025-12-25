@@ -8,6 +8,9 @@ import {
   RuleWithAssignment,
   StartGameRequest,
   StartGameResponse,
+  EndGameResponse,
+  UpdateRuleRequest,
+  UpdateRuleResponse,
 } from "@/types/dto";
 import { dataStore } from "./dataStore";
 import {
@@ -293,5 +296,95 @@ export const handlers = {
         assignedAt: a.AssignedAt,
       };
     });
+  },
+
+  endGame: async (gameId: number): Promise<EndGameResponse> => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const game = dataStore.getGame(gameId);
+    if (!game) {
+      throw new NotFoundError("Game not found");
+    }
+
+    // Get all players and determine winner
+    const players = dataStore.getPlayersByGameId(gameId);
+    const sortedPlayers = players.sort((a, b) => {
+      if (b.CurrentScore === a.CurrentScore) {
+        // Tie-breaker: lowest ID wins
+        return a.Id - b.Id;
+      }
+      return b.CurrentScore - a.CurrentScore;
+    });
+
+    const winner = sortedPlayers[0];
+    if (!winner) {
+      throw new Error("No players found in game");
+    }
+
+    // Update game status
+    dataStore.updateGame(gameId, {
+      Status: GameStatus.Ended,
+      WinnerPlayerId: winner.Id,
+    });
+
+    return {
+      game: {
+        Id: game.Id,
+        Status: GameStatus.Ended,
+        WinnerPlayerId: winner.Id,
+      },
+      winner: {
+        Id: winner.Id,
+        Username: winner.Username,
+        CurrentScore: winner.CurrentScore,
+      },
+      leaderboard: sortedPlayers.map((p) => ({
+        Id: p.Id,
+        Username: p.Username,
+        CurrentScore: p.CurrentScore,
+        IsCreator: p.IsCreator,
+      })),
+    };
+  },
+
+  updateRule: async (
+    gameId: number,
+    ruleId: number,
+    request: UpdateRuleRequest
+  ): Promise<UpdateRuleResponse> => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const rule = dataStore.getRule(ruleId);
+    if (!rule || rule.GameId !== gameId) {
+      throw new NotFoundError("Rule not found");
+    }
+
+    // Check if rule is already assigned
+    const assignment = dataStore.getAssignmentByRuleId(ruleId);
+    if (assignment) {
+      throw new ConflictError(
+        "Cannot modify rule that has already been assigned"
+      );
+    }
+
+    // Update the rule
+    const updatedRule = dataStore.updateRule(ruleId, {
+      Name: request.name,
+      RuleType: request.ruleType,
+      ScoreDelta: request.scoreDelta,
+    });
+
+    if (!updatedRule) {
+      throw new Error("Failed to update rule");
+    }
+
+    return {
+      rule: {
+        Id: updatedRule.Id,
+        Name: updatedRule.Name,
+        RuleType: updatedRule.RuleType,
+        ScoreDelta: updatedRule.ScoreDelta,
+      },
+    };
   },
 };

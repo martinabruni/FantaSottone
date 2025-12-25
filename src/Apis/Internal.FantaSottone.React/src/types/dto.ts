@@ -114,3 +114,41 @@ export interface AssignmentHistoryEntry {
   scoreDeltaApplied: number;
   assignedAt: string;
 }
+
+// End Game DTOs
+export interface EndGameRequest {}
+
+export interface EndGameResponse {
+  game: {
+    Id: number;
+    Status: GameStatus;
+    WinnerPlayerId: number | null;
+  };
+  winner: {
+    Id: number;
+    Username: string;
+    CurrentScore: number;
+  };
+  leaderboard: Array<{
+    Id: number;
+    Username: string;
+    CurrentScore: number;
+    IsCreator: boolean;
+  }>;
+}
+
+// Update Rule DTOs
+export interface UpdateRuleRequest {
+  name: string;
+  ruleType: RuleType;
+  scoreDelta: number;
+}
+
+export interface UpdateRuleResponse {
+  rule: {
+    Id: number;
+    Name: string;
+    RuleType: RuleType;
+    ScoreDelta: number;
+  };
+}
