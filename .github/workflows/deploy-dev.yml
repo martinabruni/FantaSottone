@@ -1,4 +1,4 @@
-name: Deploy FantaSottone
+name: Deploy DEV
 
 on:
   push:
@@ -40,15 +40,17 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backend
+          name: backend-dev
           path: ./publish
           retention-days: 1
 
   # ==========================================
-  # BUILD FRONTEND
+  # BUILD & DEPLOY FRONTEND
   # ==========================================
-  build-frontend:
+  deploy-frontend:
+    needs: [build-backend]
     runs-on: ubuntu-latest
+    environment: dev
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,7 +66,7 @@ jobs:
         working-directory: src/Apis/Internal.FantaSottone.React
         run: npm ci
 
-      - name: Build
+      - name: Build Frontend
         working-directory: src/Apis/Internal.FantaSottone.React
         run: npm run build
         env:
@@ -73,40 +75,31 @@ jobs:
           VITE_AUTH_STRATEGY: ${{ vars.VITE_AUTH_STRATEGY }}
           VITE_POLLING_INTERVAL_MS: ${{ vars.VITE_POLLING_INTERVAL_MS }}
           VITE_APP_NAME: ${{ vars.VITE_APP_NAME }}
-      - name: Debug env vars
-        run: |
-          echo "API_URL: ${{ vars.API_URL }}"
-          echo "VITE_API_BASE_URL: ${VITE_API_BASE_URL}"
-        env:
-          VITE_API_BASE_URL: ${{ vars.API_URL }}
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+
+      - name: Deploy Frontend
+        uses: Azure/static-web-apps-deploy@v1
         with:
-          name: frontend
-          path: src/Apis/Internal.FantaSottone.React/dist
-          retention-days: 1
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "src/Apis/Internal.FantaSottone.React/dist"
+          skip_app_build: true
+          skip_api_build: true
 
   # ==========================================
-  # DEPLOY DEV (automatico)
+  # DEPLOY BACKEND
   # ==========================================
-  deploy-dev:
-    needs: [build-backend, build-frontend]
+  deploy-backend:
+    needs: [build-backend]
     runs-on: ubuntu-latest
     environment: dev
     steps:
       - name: Download backend
         uses: actions/download-artifact@v4
         with:
-          name: backend
+          name: backend-dev
           path: ./backend
 
-      - name: Download frontend
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend
-          path: ./frontend
-
-      # Deploy Backend con Publish Profile
       - name: Deploy Backend
         uses: azure/webapps-deploy@v3
         with:
@@ -114,94 +107,29 @@ jobs:
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./backend
 
-      # Deploy Frontend con Deploy Token
-      - name: Deploy Frontend
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: "upload"
-          app_location: "./frontend"
-          skip_app_build: true
-          skip_api_build: true
-
-      # Health Checks
-      - name: Wait for deployment
-        run: sleep 30
-
-      - name: Health Check Backend
-        run: |
-          for i in {1..10}; do
-            if curl -f "${{ vars.API_URL }}/health"; then
-              echo "✅ Backend healthy"
-              exit 0
-            fi
-            echo "Waiting... ($i/10)"
-            sleep 10
-          done
-          echo "❌ Backend health check failed"
-          exit 1
-
-      - name: Health Check Frontend
-        run: |
-          if curl -f "${{ vars.FRONTEND_URL }}"; then
-            echo "✅ Frontend healthy"
-          else
-            echo "❌ Frontend health check failed"
-            exit 1
-          fi
-
   # ==========================================
-  # DEPLOY PROD (con approval manuale)
+  # HEALTH CHECKS
   # ==========================================
-  deploy-prod:
-    needs: [build-backend, build-frontend, deploy-dev]
+  health-check:
+    needs: [deploy-frontend, deploy-backend]
     runs-on: ubuntu-latest
-    environment: prod
+    environment: dev
     steps:
-      - name: Download backend
-        uses: actions/download-artifact@v4
-        with:
-          name: backend
-          path: ./backend
-
-      - name: Download frontend
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend
-          path: ./frontend
-
-      # Deploy Backend con Publish Profile
-      - name: Deploy Backend
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ vars.WEB_API_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./backend
-
-      # Deploy Frontend con Deploy Token
-      - name: Deploy Frontend
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: "upload"
-          app_location: "./frontend"
-          skip_app_build: true
-          skip_api_build: true
-
-      # Health Checks
       - name: Wait for deployment
         run: sleep 30
 
       - name: Health Check Backend
         run: |
+          echo "🔍 Testing: ${{ vars.API_URL }}/health"
           for i in {1..10}; do
-            if curl -f "${{ vars.API_URL }}/health"; then
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.API_URL }}/health" || echo "000")
+            echo "Attempt $i/10 - HTTP Status: $HTTP_CODE"
+            
+            if [ "$HTTP_CODE" = "200" ]; then
               echo "✅ Backend healthy"
               exit 0
             fi
-            echo "Waiting... ($i/10)"
+            
             sleep 10
           done
           echo "❌ Backend health check failed"
@@ -209,9 +137,20 @@ jobs:
 
       - name: Health Check Frontend
         run: |
-          if curl -f "${{ vars.FRONTEND_URL }}"; then
+          echo "🔍 Testing: ${{ vars.FRONTEND_URL }}"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.FRONTEND_URL }}" || echo "000")
+
+          if [ "$HTTP_CODE" = "200" ]; then
             echo "✅ Frontend healthy"
           else
-            echo "❌ Frontend health check failed"
+            echo "❌ Frontend health check failed (HTTP $HTTP_CODE)"
             exit 1
           fi
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "🎉 Deployment DEV completato con successo!"
+          echo ""
+          echo "📍 Frontend: ${{ vars.FRONTEND_URL }}"
+          echo "📍 Backend:  ${{ vars.API_URL }}"

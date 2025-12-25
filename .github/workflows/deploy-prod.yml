@@ -1,0 +1,202 @@
+name: Deploy PROD
+
+on:
+  # Parte solo quando "Deploy DEV" completa con successo
+  workflow_run:
+    workflows: ["Deploy DEV"]
+    types:
+      - completed
+    branches:
+      - main
+
+  # Permetti anche trigger manuale
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  NODE_VERSION: "20.x"
+
+jobs:
+  # ==========================================
+  # VERIFICA SUCCESSO DEV
+  # ==========================================
+  check-dev-success:
+    runs-on: ubuntu-latest
+    # Questo job fallisce se DEV è fallito
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Check DEV deployment
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "⚠️ Deployment manuale - saltando verifica DEV"
+          else
+            echo "✅ DEV deployment completato con successo"
+            echo "🚀 Avvio deployment PROD"
+          fi
+
+  # ==========================================
+  # BUILD BACKEND
+  # ==========================================
+  build-backend:
+    needs: [check-dev-success]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore FantaSottone.sln
+
+      - name: Build
+        run: dotnet build FantaSottone.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test FantaSottone.sln --configuration Release --no-build --verbosity normal
+
+      - name: Publish
+        run: dotnet publish src/Apis/Internal.FantaSottone.Api/Internal.FantaSottone.Api.csproj --configuration Release --output ./publish --no-build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-prod
+          path: ./publish
+          retention-days: 7
+
+  # ==========================================
+  # BUILD & DEPLOY FRONTEND
+  # ==========================================
+  deploy-frontend:
+    needs: [build-backend]
+    runs-on: ubuntu-latest
+    environment: prod # ← Richiede approval manuale se configurato
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: src/Apis/Internal.FantaSottone.React/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src/Apis/Internal.FantaSottone.React
+        run: npm ci
+
+      - name: Build Frontend
+        working-directory: src/Apis/Internal.FantaSottone.React
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_URL }}
+          VITE_USE_MOCKS: ${{ vars.VITE_USE_MOCKS }}
+          VITE_AUTH_STRATEGY: ${{ vars.VITE_AUTH_STRATEGY }}
+          VITE_POLLING_INTERVAL_MS: ${{ vars.VITE_POLLING_INTERVAL_MS }}
+          VITE_APP_NAME: ${{ vars.VITE_APP_NAME }}
+
+      - name: Deploy Frontend
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "src/Apis/Internal.FantaSottone.React/dist"
+          skip_app_build: true
+          skip_api_build: true
+
+  # ==========================================
+  # DEPLOY BACKEND
+  # ==========================================
+  deploy-backend:
+    needs: [build-backend]
+    runs-on: ubuntu-latest
+    environment: prod # ← Richiede approval manuale se configurato
+    steps:
+      - name: Download backend
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-prod
+          path: ./backend
+
+      - name: Deploy Backend
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.WEB_API_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./backend
+
+  # ==========================================
+  # HEALTH CHECKS
+  # ==========================================
+  health-check:
+    needs: [deploy-frontend, deploy-backend]
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health Check Backend
+        run: |
+          echo "🔍 Testing: ${{ vars.API_URL }}/health"
+          for i in {1..10}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.API_URL }}/health" || echo "000")
+            echo "Attempt $i/10 - HTTP Status: $HTTP_CODE"
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Backend healthy"
+              exit 0
+            fi
+            
+            sleep 10
+          done
+          echo "❌ Backend health check failed"
+          exit 1
+
+      - name: Health Check Frontend
+        run: |
+          echo "🔍 Testing: ${{ vars.FRONTEND_URL }}"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.FRONTEND_URL }}" || echo "000")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Frontend healthy"
+          else
+            echo "❌ Frontend health check failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "🎉 Deployment PROD completato con successo!"
+          echo ""
+          echo "📍 Frontend: ${{ vars.FRONTEND_URL }}"
+          echo "📍 Backend:  ${{ vars.API_URL }}"
+          echo ""
+          echo "🔔 Notifica gli stakeholder del nuovo rilascio"
+
+  # ==========================================
+  # NOTIFICHE (opzionale)
+  # ==========================================
+  notify:
+    needs: [health-check]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify Success
+        if: needs.health-check.result == 'success'
+        run: |
+          echo "✅ Deployment PROD riuscito!"
+          # Qui puoi aggiungere notifiche (Slack, Teams, email, etc.)
+
+      - name: Notify Failure
+        if: needs.health-check.result == 'failure'
+        run: |
+          echo "❌ Deployment PROD fallito!"
+          # Qui puoi aggiungere notifiche di errore
