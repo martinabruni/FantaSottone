@@ -7,7 +7,7 @@ public class PlayerValidator : AbstractValidator<Player>
 {
     public PlayerValidator()
     {
-        RuleFor(x => x.GameId).GreaterThan(0);
+        //RuleFor(x => x.GameId).GreaterThan(0);
         RuleFor(x => x.Username).NotEmpty().MaximumLength(50);
         RuleFor(x => x.AccessCode).NotEmpty().MaximumLength(32);
         RuleFor(x => x.CreatedAt).NotEmpty();

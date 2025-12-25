@@ -45,9 +45,14 @@ internal sealed class AuthManager : IAuthManager
             }
 
             var player = playerResult.Value!;
+            if(player.GameId is null)
+            {
+                _logger.LogWarning("Player {PlayerId} ({Username}) has no associated game", player.Id, username);
+                return AppResult<LoginResult>.Unauthorized("Player has no associated game");
+            }
 
             // Get game
-            var gameResult = await _gameRepository.GetByIdAsync(player.GameId, cancellationToken);
+            var gameResult = await _gameRepository.GetByIdAsync(player.GameId.Value, cancellationToken);
             if (gameResult.IsFailure)
             {
                 _logger.LogError("Game {GameId} not found for player {PlayerId}", player.GameId, player.Id);
