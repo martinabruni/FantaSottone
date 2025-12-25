@@ -1,10 +1,10 @@
 namespace Internal.FantaSottone.Business.Managers;
 
 using Internal.FantaSottone.Domain.Managers;
-using Internal.FantaSottone.Domain.Models;
 using Internal.FantaSottone.Domain.Repositories;
 using Internal.FantaSottone.Domain.Results;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -15,15 +15,18 @@ internal sealed class AuthManager : IAuthManager
     private readonly IPlayerRepository _playerRepository;
     private readonly IGameRepository _gameRepository;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<AuthManager> _logger;
 
     public AuthManager(
         IPlayerRepository playerRepository,
         IGameRepository gameRepository,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ILogger<AuthManager> logger)
     {
         _playerRepository = playerRepository;
         _gameRepository = gameRepository;
         _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<AppResult<LoginResult>> LoginAsync(
@@ -31,30 +34,49 @@ internal sealed class AuthManager : IAuthManager
         string accessCode,
         CancellationToken cancellationToken = default)
     {
-        // Find player by credentials
-        var player = await _playerRepository.GetByCredentialsAsync(username, accessCode, cancellationToken);
-        if (player == null)
-            return AppResult<LoginResult>.Unauthorized("Invalid username or access code");
-
-        // Get game
-        var game = await _gameRepository.GetByIdAsync(player.GameId, cancellationToken);
-        if (game == null)
-            return AppResult<LoginResult>.NotFound("Game not found");
-
-        // Generate JWT token
-        var token = GenerateJwtToken(player, game);
-
-        var result = new LoginResult
+        try
         {
-            Token = token,
-            Game = game,
-            Player = player
-        };
+            // Find player by credentials
+            var playerResult = await _playerRepository.GetByCredentialsAsync(username, accessCode, cancellationToken);
+            if (playerResult.IsFailure)
+            {
+                _logger.LogWarning("Login failed for username {Username}", username);
+                return AppResult<LoginResult>.Unauthorized("Invalid username or access code");
+            }
 
-        return AppResult<LoginResult>.Success(result);
+            var player = playerResult.Value!;
+
+            // Get game
+            var gameResult = await _gameRepository.GetByIdAsync(player.GameId, cancellationToken);
+            if (gameResult.IsFailure)
+            {
+                _logger.LogError("Game {GameId} not found for player {PlayerId}", player.GameId, player.Id);
+                return AppResult<LoginResult>.NotFound("Game not found");
+            }
+
+            var game = gameResult.Value!;
+
+            // Generate JWT token
+            var token = GenerateJwtToken(player, game);
+
+            var result = new LoginResult
+            {
+                Token = token,
+                Game = game,
+                Player = player
+            };
+
+            _logger.LogInformation("Player {PlayerId} ({Username}) logged in to game {GameId}", player.Id, username, game.Id);
+            return AppResult<LoginResult>.Success(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during login for username {Username}", username);
+            return AppResult<LoginResult>.InternalServerError($"Login error: {ex.Message}");
+        }
     }
 
-    private string GenerateJwtToken(Player player, Game game)
+    private string GenerateJwtToken(Domain.Models.Player player, Domain.Models.Game game)
     {
         var jwtSettings = _configuration.GetSection("Jwt");
         var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
