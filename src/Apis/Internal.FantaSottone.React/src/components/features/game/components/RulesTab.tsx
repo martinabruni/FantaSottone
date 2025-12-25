@@ -6,7 +6,6 @@ import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ActionButton } from "@/components/common/ActionButton";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RuleType } from "@/types/entities";
 import { Clock, CheckCircle2, Pencil } from "lucide-react";
