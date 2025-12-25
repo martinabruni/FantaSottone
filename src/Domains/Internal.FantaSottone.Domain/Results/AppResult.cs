@@ -54,7 +54,7 @@ public class AppResult
     };
 }
 
-public sealed class AppResult<T> : AppResult where T : class
+public sealed class AppResult<T> : AppResult //where T : class
 {
     public T? Value { get; set; }
 
