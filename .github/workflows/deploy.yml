@@ -69,10 +69,10 @@ jobs:
         run: npm run build
         env:
           VITE_API_BASE_URL: ${{ vars.API_URL }}
-          VITE_USE_MOCKS: "false"
-          VITE_AUTH_STRATEGY: "jwt"
-          VITE_POLLING_INTERVAL_MS: "3000"
-          VITE_APP_NAME: "FantaSottone"
+          VITE_USE_MOCKS: ${{ vars.VITE_USE_MOCKS }}
+          VITE_AUTH_STRATEGY: ${{ vars.VITE_AUTH_STRATEGY }}
+          VITE_POLLING_INTERVAL_MS: ${{ vars.VITE_POLLING_INTERVAL_MS }}
+          VITE_APP_NAME: ${{ vars.VITE_APP_NAME }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
