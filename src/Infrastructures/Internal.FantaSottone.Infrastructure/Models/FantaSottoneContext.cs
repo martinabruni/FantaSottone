@@ -25,6 +25,8 @@ public partial class FantaSottoneContext : DbContext
     {
         modelBuilder.Entity<GameEntity>(entity =>
         {
+            entity.HasIndex(e => e.Status, "IX_GameEntity_Status");
+
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(3)
                 .HasDefaultValueSql("(sysutcdatetime())")
@@ -79,6 +81,8 @@ public partial class FantaSottoneContext : DbContext
         {
             entity.HasIndex(e => new { e.GameId, e.AssignedAt }, "IX_RuleAssignmentEntity_GameId_AssignedAt").IsDescending(false, true);
 
+            entity.HasIndex(e => new { e.GameId, e.RuleId }, "IX_RuleAssignmentEntity_GameId_RuleId");
+
             entity.HasIndex(e => e.RuleId, "UX_RuleAssignmentEntity_RuleId").IsUnique();
 
             entity.Property(e => e.AssignedAt)
@@ -111,6 +115,8 @@ public partial class FantaSottoneContext : DbContext
 
         modelBuilder.Entity<RuleEntity>(entity =>
         {
+            entity.HasIndex(e => e.GameId, "IX_RuleEntity_GameId");
+
             entity.HasIndex(e => new { e.GameId, e.Name }, "UX_RuleEntity_GameId_Name").IsUnique();
 
             entity.Property(e => e.CreatedAt)
