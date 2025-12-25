@@ -167,6 +167,79 @@ public sealed class GamesController : ControllerBase
     }
 
     /// <summary>
+    /// Creates a new rule for a game (creator only)
+    /// </summary>
+    [Authorize]
+    [HttpPost("{gameId}/rules")]
+    [ProducesResponseType(typeof(CreateRuleResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreateRule(int gameId, [FromBody] CreateRuleRequest request, CancellationToken cancellationToken)
+    {
+        var creatorPlayerId = GetAuthenticatedPlayerId();
+
+        var result = await _ruleService.CreateRuleAsync(
+            gameId,
+            creatorPlayerId,
+            request.Name,
+            (RuleType)request.RuleType,
+            request.ScoreDelta,
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return StatusCode((int)result.StatusCode, new ProblemDetails
+            {
+                Status = (int)result.StatusCode,
+                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to create rule"
+            });
+        }
+
+        var rule = result.Value!;
+
+        var response = new CreateRuleResponse
+        {
+            Rule = new RuleDto
+            {
+                Id = rule.Id,
+                Name = rule.Name,
+                RuleType = (int)rule.RuleType,
+                ScoreDelta = rule.ScoreDelta
+            }
+        };
+
+        return Created($"/api/games/{gameId}/rules/{rule.Id}", response);
+    }
+
+    /// <summary>
+    /// Deletes a rule (creator only, only if not assigned)
+    /// </summary>
+    [Authorize]
+    [HttpDelete("{gameId}/rules/{ruleId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteRule(int gameId, int ruleId, CancellationToken cancellationToken)
+    {
+        var creatorPlayerId = GetAuthenticatedPlayerId();
+
+        var result = await _ruleService.DeleteRuleAsync(ruleId, gameId, creatorPlayerId, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return StatusCode((int)result.StatusCode, new ProblemDetails
+            {
+                Status = (int)result.StatusCode,
+                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to delete rule",
+                Type = result.Errors.FirstOrDefault()?.Code
+            });
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Assigns a rule to a player (atomic)
     /// </summary>
     [Authorize]

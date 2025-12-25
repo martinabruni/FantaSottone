@@ -164,7 +164,19 @@ public sealed class EndGameInfoDto
     public int WinnerPlayerId { get; set; }
 }
 
-// ========== Rule Update ==========
+// ========== Rule Management ==========
+
+public sealed class CreateRuleRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public int RuleType { get; set; }
+    public int ScoreDelta { get; set; }
+}
+
+public sealed class CreateRuleResponse
+{
+    public RuleDto Rule { get; set; } = null!;
+}
 
 public sealed class UpdateRuleRequest
 {
@@ -193,7 +205,7 @@ public sealed class GameDto
 public sealed class PlayerDto
 {
     public int Id { get; set; }
-    public int GameId { get; set; }
+    public int? GameId { get; set; }
     public string Username { get; set; } = string.Empty;
     public bool IsCreator { get; set; }
     public int CurrentScore { get; set; }
