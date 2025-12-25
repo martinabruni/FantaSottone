@@ -74,6 +74,7 @@ public partial class FantaSottoneContext : DbContext
 
             entity.HasOne(d => d.Game).WithMany(p => p.PlayerEntity)
                 .HasForeignKey(d => d.GameId)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_PlayerEntity_GameEntity");
         });
 

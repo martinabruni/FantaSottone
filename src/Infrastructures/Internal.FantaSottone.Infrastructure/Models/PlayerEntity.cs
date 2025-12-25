@@ -9,7 +9,7 @@ public partial class PlayerEntity
 {
     public int Id { get; set; }
 
-    public int GameId { get; set; }
+    public int? GameId { get; set; }
 
     public string Username { get; set; }
 

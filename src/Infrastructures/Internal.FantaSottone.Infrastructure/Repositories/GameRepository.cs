@@ -2,63 +2,41 @@ namespace Internal.FantaSottone.Infrastructure.Repositories;
 
 using Internal.FantaSottone.Domain.Models;
 using Internal.FantaSottone.Domain.Repositories;
-using Internal.FantaSottone.Infrastructure.Mappers;
+using Internal.FantaSottone.Domain.Results;
 using Internal.FantaSottone.Infrastructure.Models;
+using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
-internal sealed class GameRepository : IGameRepository
+internal sealed class GameRepository : BaseRepository<Game, GameEntity, int>, IGameRepository
 {
-    private readonly FantaSottoneContext _context;
-
-    public GameRepository(FantaSottoneContext context)
+    public GameRepository(FantaSottoneContext context, ILogger<GameRepository> logger)
+        : base(context, logger)
     {
-        _context = context;
     }
 
-    public async Task<Game?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<AppResult<Game>> GetByIdWithDetailsAsync(int id, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.GameEntity.FindAsync([id], cancellationToken);
-        return entity?.ToDomain();
-    }
+        try
+        {
+            var entity = await _context.GameEntity
+                .Include(g => g.PlayerEntity)
+                .Include(g => g.RuleEntity)
+                .FirstOrDefaultAsync(g => g.Id == id, cancellationToken);
 
-    public async Task<Game?> GetByIdWithDetailsAsync(int id, CancellationToken cancellationToken = default)
-    {
-        var entity = await _context.GameEntity
-            .Include(g => g.PlayerEntity)
-            .Include(g => g.RuleEntity)
-            .FirstOrDefaultAsync(g => g.Id == id, cancellationToken);
-        return entity?.ToDomain();
-    }
+            if (entity == null)
+            {
+                _logger.LogWarning("Game with ID {GameId} not found (with details)", id);
+                return AppResult<Game>.NotFound($"Game with ID {id} not found");
+            }
 
-    public async Task<IEnumerable<Game>> GetAllAsync(CancellationToken cancellationToken = default)
-    {
-        var entities = await _context.GameEntity.ToListAsync(cancellationToken);
-        return entities.Select(e => e.ToDomain());
-    }
-
-    public async Task<Game> AddAsync(Game entity, CancellationToken cancellationToken = default)
-    {
-        var dbEntity = entity.ToEntity();
-        await _context.GameEntity.AddAsync(dbEntity, cancellationToken);
-        return dbEntity.ToDomain();
-    }
-
-    public Task<Game> UpdateAsync(Game entity, CancellationToken cancellationToken = default)
-    {
-        var dbEntity = entity.ToEntity();
-        _context.GameEntity.Update(dbEntity);
-        return Task.FromResult(dbEntity.ToDomain());
-    }
-
-    public Task DeleteAsync(Game entity, CancellationToken cancellationToken = default)
-    {
-        var dbEntity = entity.ToEntity();
-        _context.GameEntity.Remove(dbEntity);
-        return Task.CompletedTask;
-    }
-
-    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        return await _context.SaveChangesAsync(cancellationToken);
+            var domainEntity = entity.Adapt<Game>();
+            return AppResult<Game>.Success(domainEntity);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving Game with ID {GameId} (with details)", id);
+            return AppResult<Game>.InternalServerError($"Error retrieving game with details: {ex.Message}");
+        }
     }
 }
