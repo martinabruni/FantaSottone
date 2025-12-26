@@ -38,14 +38,13 @@ export function LoginForm() {
 
     try {
       const result = await login({ username, accessCode });
-
       if (result) {
         toast({
           variant: "success",
           title: "Accesso riuscito",
-          description: `Benvenuto, ${result.player.Username}!`,
+          description: `Benvenuto, ${result.player.username}!`,
         });
-        navigate(`/game/${result.game.Id}`);
+        navigate(`/game/${result.game.id}`);
       } else {
         toast({
           variant: "error",

@@ -18,19 +18,19 @@ export class MockAuthStrategy implements IAuthStrategy {
       response: {
         token: "mock-token-test1",
         game: {
-          Id: 1,
-          Name: "Test Game",
-          InitialScore: 100,
-          Status: 2, // Started
-          CreatorPlayerId: 1,
-          WinnerPlayerId: null,
+          id: 1,
+          name: "Test Game",
+          initialScore: 100,
+          status: 2, // Started
+          creatorPlayerId: 1,
+          winnerPlayerId: null,
         },
         player: {
-          Id: 1,
-          GameId: 1,
-          Username: "test1",
-          IsCreator: true,
-          CurrentScore: 100,
+          id: 1,
+          gameId: 1,
+          username: "test1",
+          isCreator: true,
+          currentScore: 100,
         },
       },
     });
@@ -41,19 +41,19 @@ export class MockAuthStrategy implements IAuthStrategy {
       response: {
         token: "mock-token-test2",
         game: {
-          Id: 1,
-          Name: "Test Game",
-          InitialScore: 100,
-          Status: 2,
-          CreatorPlayerId: 1,
-          WinnerPlayerId: null,
+          id: 1,
+          name: "Test Game",
+          initialScore: 100,
+          status: 2,
+          creatorPlayerId: 1,
+          winnerPlayerId: null,
         },
         player: {
-          Id: 2,
-          GameId: 1,
-          Username: "test2",
-          IsCreator: false,
-          CurrentScore: 100,
+          id: 2,
+          gameId: 1,
+          username: "test2",
+          isCreator: false,
+          currentScore: 100,
         },
       },
     });
@@ -89,10 +89,10 @@ export class MockAuthStrategy implements IAuthStrategy {
   saveSession(response: LoginResponse): void {
     const session: SessionData = {
       token: response.token,
-      playerId: response.player.Id,
-      gameId: response.player.GameId,
-      username: response.player.Username,
-      role: getRoleFromIsCreator(response.player.IsCreator),
+      playerId: response.player.id,
+      gameId: response.player.gameId,
+      username: response.player.username,
+      role: getRoleFromIsCreator(response.player.isCreator),
     };
 
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));

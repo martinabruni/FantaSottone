@@ -29,21 +29,21 @@ export function GameStatusBar({ onStatusChange }: GameStatusBarProps) {
 
   useEffect(() => {
     if (status && onStatusChange) {
-      onStatusChange(status.game.Status);
+      onStatusChange(status.game.status);
     }
   }, [status, onStatusChange]);
 
   if (!status) return null;
 
   const statusText =
-    status.game.Status === GameStatus.Draft
+    status.game.status === GameStatus.Draft
       ? "Bozza"
-      : status.game.Status === GameStatus.Started
+      : status.game.status === GameStatus.Started
       ? "In corso"
       : "Terminata";
 
   const statusVariant =
-    status.game.Status === GameStatus.Ended ? "default" : "secondary";
+    status.game.status === GameStatus.Ended ? "default" : "secondary";
 
   return (
     <Card>
@@ -54,15 +54,15 @@ export function GameStatusBar({ onStatusChange }: GameStatusBarProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {status.game.Status === GameStatus.Ended && status.winner && (
+        {status.game.status === GameStatus.Ended && status.winner && (
           <div className="flex items-center gap-2 p-4 bg-primary/10 rounded-md">
             <Crown className="h-5 w-5 text-primary" />
             <div>
               <p className="font-semibold">
-                Vincitore: {status.winner.Username}
+                Vincitore: {status.winner.username}
               </p>
               <p className="text-sm text-muted-foreground">
-                Punteggio finale: {status.winner.CurrentScore}
+                Punteggio finale: {status.winner.currentScore}
               </p>
             </div>
           </div>

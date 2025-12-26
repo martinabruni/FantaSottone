@@ -11,6 +11,8 @@ import {
   EndGameResponse,
   UpdateRuleRequest,
   UpdateRuleResponse,
+  CreateRuleRequest,
+  CreateRuleResponse,
 } from "@/types/dto";
 import { dataStore } from "./dataStore";
 import {
@@ -40,59 +42,100 @@ export const handlers = {
     return {
       token: `mock-token-${player.Id}-${Date.now()}`,
       game: {
-        Id: game.Id,
-        Name: game.Name,
-        InitialScore: game.InitialScore,
-        Status: game.Status,
-        CreatorPlayerId: game.CreatorPlayerId,
-        WinnerPlayerId: game.WinnerPlayerId,
+        id: game.Id,
+        name: game.Name,
+        initialScore: game.InitialScore,
+        status: game.Status,
+        creatorPlayerId: game.CreatorPlayerId,
+        winnerPlayerId: game.WinnerPlayerId,
       },
       player: {
-        Id: player.Id,
-        GameId: player.GameId,
-        Username: player.Username,
-        IsCreator: player.IsCreator,
-        CurrentScore: player.CurrentScore,
+        id: player.Id,
+        gameId: player.GameId,
+        username: player.Username,
+        isCreator: player.IsCreator,
+        currentScore: player.CurrentScore,
       },
     };
   },
 
   // Game handlers
+  // src/Apis/Internal.FantaSottone.React/src/mocks/handlers.ts
+  // (Modifico solo la funzione startGame)
+
   startGame: async (request: StartGameRequest): Promise<StartGameResponse> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // Create game
+    // Step 1: Validate - creator exists
+    const creatorData = request.players.find((p) => p.isCreator);
+    if (!creatorData) {
+      throw new Error("At least one player must be marked as creator");
+    }
+
+    // FEATURE 1: Validazione minimo 2 giocatori (1 creatore + 1 normale)
+    const creatorCount = request.players.filter((p) => p.isCreator).length;
+    const normalPlayerCount = request.players.filter(
+      (p) => !p.isCreator
+    ).length;
+
+    if (creatorCount === 0) {
+      throw new Error("At least one creator is required");
+    }
+
+    if (normalPlayerCount === 0) {
+      throw new Error("At least one normal player (non-creator) is required");
+    }
+
+    // Step 2: Create creator player first
+    const creatorPlayer = dataStore.createPlayer({
+      GameId: 0, // Temporary
+      Username: creatorData.username,
+      AccessCode: creatorData.accessCode,
+      IsCreator: true,
+      CurrentScore: request.initialScore,
+    });
+
+    // Step 3: Create game
     const game = dataStore.createGame({
       Name: request.name,
       InitialScore: request.initialScore,
       Status: GameStatus.Started,
-      CreatorPlayerId: undefined,
+      CreatorPlayerId: creatorPlayer.Id,
       WinnerPlayerId: null,
     });
 
-    // Create players
-    const credentials: StartGameResponse["credentials"] = [];
-    request.players.forEach((p, index) => {
-      const player = dataStore.createPlayer({
-        GameId: game.Id,
-        Username: p.username,
-        AccessCode: p.accessCode,
-        IsCreator: p.isCreator ?? index === 0,
-        CurrentScore: request.initialScore,
+    // Step 4: Update creator with gameId
+    creatorPlayer.GameId = game.Id;
+    dataStore.updatePlayer(creatorPlayer.Id, { GameId: game.Id });
+
+    // Step 5: Create other players
+    const credentials: StartGameResponse["credentials"] = [
+      {
+        username: creatorPlayer.Username,
+        accessCode: creatorPlayer.AccessCode,
+        isCreator: true,
+      },
+    ];
+
+    request.players
+      .filter((p) => !p.isCreator)
+      .forEach((p) => {
+        const player = dataStore.createPlayer({
+          GameId: game.Id,
+          Username: p.username,
+          AccessCode: p.accessCode,
+          IsCreator: false,
+          CurrentScore: request.initialScore,
+        });
+
+        credentials.push({
+          username: player.Username,
+          accessCode: player.AccessCode,
+          isCreator: false,
+        });
       });
 
-      if (player.IsCreator && !game.CreatorPlayerId) {
-        dataStore.updateGame(game.Id, { CreatorPlayerId: player.Id });
-      }
-
-      credentials.push({
-        username: player.Username,
-        accessCode: player.AccessCode,
-        isCreator: player.IsCreator,
-      });
-    });
-
-    // Create rules
+    // Step 6: Create rules
     request.rules.forEach((r) => {
       dataStore.createRule({
         GameId: game.Id,
@@ -118,12 +161,12 @@ export const handlers = {
 
     return players
       .map((p) => ({
-        Id: p.Id,
-        Username: p.Username,
-        CurrentScore: p.CurrentScore,
-        IsCreator: p.IsCreator,
+        id: p.Id,
+        username: p.Username,
+        currentScore: p.CurrentScore,
+        isCreator: p.IsCreator,
       }))
-      .sort((a, b) => b.CurrentScore - a.CurrentScore);
+      .sort((a, b) => b.currentScore - a.currentScore);
   },
 
   getRules: async (gameId: number): Promise<RuleWithAssignment[]> => {
@@ -156,14 +199,65 @@ export const handlers = {
 
       return {
         rule: {
-          Id: rule.Id,
-          Name: rule.Name,
-          RuleType: rule.RuleType,
-          ScoreDelta: rule.ScoreDelta,
+          id: rule.Id,
+          name: rule.Name,
+          ruleType: rule.RuleType,
+          scoreDelta: rule.ScoreDelta,
         },
         assignment: assignmentData,
       };
     });
+  },
+
+  createRule: async (
+    gameId: number,
+    request: CreateRuleRequest
+  ): Promise<CreateRuleResponse> => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const game = dataStore.getGame(gameId);
+    if (!game) {
+      throw new NotFoundError("Game not found");
+    }
+
+    const rule = dataStore.createRule({
+      GameId: gameId,
+      Name: request.name,
+      RuleType: request.ruleType,
+      ScoreDelta: request.scoreDelta,
+    });
+
+    return {
+      rule: {
+        id: rule.Id,
+        name: rule.Name,
+        ruleType: rule.RuleType,
+        scoreDelta: rule.ScoreDelta,
+      },
+    };
+  },
+
+  deleteRule: async (gameId: number, ruleId: number): Promise<void> => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const rule = dataStore.getRule(ruleId);
+    if (!rule) {
+      throw new NotFoundError("Rule not found");
+    }
+
+    if (rule.GameId !== gameId) {
+      throw new Error("Rule does not belong to this game");
+    }
+
+    // Check if assigned
+    const assignment = dataStore.getAssignmentByRuleId(ruleId);
+    if (assignment) {
+      throw new ConflictError(
+        "Cannot delete a rule that has already been assigned"
+      );
+    }
+
+    dataStore.deleteRule(ruleId);
   },
 
   assignRule: async (
@@ -237,8 +331,8 @@ export const handlers = {
         scoreDeltaApplied: assignment.ScoreDeltaApplied,
       },
       updatedPlayer: {
-        Id: updatedPlayer.Id,
-        CurrentScore: updatedPlayer.CurrentScore,
+        id: updatedPlayer.Id,
+        currentScore: updatedPlayer.CurrentScore,
       },
       gameStatus: {
         status: gameStatus,
@@ -260,18 +354,18 @@ export const handlers = {
       const winnerPlayer = dataStore.getPlayer(game.WinnerPlayerId);
       if (winnerPlayer) {
         winner = {
-          Id: winnerPlayer.Id,
-          Username: winnerPlayer.Username,
-          CurrentScore: winnerPlayer.CurrentScore,
+          id: winnerPlayer.Id,
+          username: winnerPlayer.Username,
+          currentScore: winnerPlayer.CurrentScore,
         };
       }
     }
 
     return {
       game: {
-        Id: game.Id,
-        Status: game.Status,
-        WinnerPlayerId: game.WinnerPlayerId ?? undefined,
+        id: game.Id,
+        status: game.Status,
+        winnerPlayerId: game.WinnerPlayerId ?? undefined,
       },
       winner,
     };
@@ -329,20 +423,20 @@ export const handlers = {
 
     return {
       game: {
-        Id: game.Id,
-        Status: GameStatus.Ended,
-        WinnerPlayerId: winner.Id,
+        id: game.Id,
+        status: GameStatus.Ended,
+        winnerPlayerId: winner.Id,
       },
       winner: {
-        Id: winner.Id,
-        Username: winner.Username,
-        CurrentScore: winner.CurrentScore,
+        id: winner.Id,
+        username: winner.Username,
+        currentScore: winner.CurrentScore,
       },
       leaderboard: sortedPlayers.map((p) => ({
-        Id: p.Id,
-        Username: p.Username,
-        CurrentScore: p.CurrentScore,
-        IsCreator: p.IsCreator,
+        id: p.Id,
+        username: p.Username,
+        currentScore: p.CurrentScore,
+        isCreator: p.IsCreator,
       })),
     };
   },
@@ -380,10 +474,10 @@ export const handlers = {
 
     return {
       rule: {
-        Id: updatedRule.Id,
-        Name: updatedRule.Name,
-        RuleType: updatedRule.RuleType,
-        ScoreDelta: updatedRule.ScoreDelta,
+        id: updatedRule.Id,
+        name: updatedRule.Name,
+        ruleType: updatedRule.RuleType,
+        scoreDelta: updatedRule.ScoreDelta,
       },
     };
   },

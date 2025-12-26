@@ -10,19 +10,19 @@ export interface LoginRequest {
 export interface LoginResponse {
   token: string;
   game: {
-    Id: number;
-    Name: string;
-    InitialScore: number;
-    Status: GameStatus;
-    CreatorPlayerId?: number | null;
-    WinnerPlayerId?: number | null;
+    id: number;
+    name: string;
+    initialScore: number;
+    status: GameStatus;
+    creatorPlayerId?: number | null;
+    winnerPlayerId?: number | null;
   };
   player: {
-    Id: number;
-    GameId: number;
-    Username: string;
-    IsCreator: boolean;
-    CurrentScore: number;
+    id: number;
+    gameId: number;
+    username: string;
+    isCreator: boolean;
+    currentScore: number;
   };
 }
 
@@ -53,18 +53,18 @@ export interface StartGameResponse {
 }
 
 export interface LeaderboardEntry {
-  Id: number;
-  Username: string;
-  CurrentScore: number;
-  IsCreator: boolean;
+  id: number;
+  username: string;
+  currentScore: number;
+  isCreator: boolean;
 }
 
 export interface RuleWithAssignment {
   rule: {
-    Id: number;
-    Name: string;
-    RuleType: RuleType;
-    ScoreDelta: number;
+    id: number;
+    name: string;
+    ruleType: RuleType;
+    scoreDelta: number;
   };
   assignment: {
     ruleAssignmentId: number;
@@ -83,8 +83,8 @@ export interface AssignRuleResponse {
     scoreDeltaApplied: number;
   };
   updatedPlayer: {
-    Id: number;
-    CurrentScore: number;
+    id: number;
+    currentScore: number;
   };
   gameStatus: {
     status: GameStatus;
@@ -94,14 +94,14 @@ export interface AssignRuleResponse {
 
 export interface GameStatusResponse {
   game: {
-    Id: number;
-    Status: GameStatus;
-    WinnerPlayerId?: number | null;
+    id: number;
+    status: GameStatus;
+    winnerPlayerId?: number | null;
   };
   winner: {
-    Id: number;
-    Username: string;
-    CurrentScore: number;
+    id: number;
+    username: string;
+    currentScore: number;
   } | null;
 }
 
@@ -120,24 +120,39 @@ export interface EndGameRequest {}
 
 export interface EndGameResponse {
   game: {
-    Id: number;
-    Status: GameStatus;
-    WinnerPlayerId: number | null;
+    id: number;
+    status: GameStatus;
+    winnerPlayerId: number | null;
   };
   winner: {
-    Id: number;
-    Username: string;
-    CurrentScore: number;
+    id: number;
+    username: string;
+    currentScore: number;
   };
   leaderboard: Array<{
-    Id: number;
-    Username: string;
-    CurrentScore: number;
-    IsCreator: boolean;
+    id: number;
+    username: string;
+    currentScore: number;
+    isCreator: boolean;
   }>;
 }
 
-// Update Rule DTOs
+// Rule Management DTOs
+export interface CreateRuleRequest {
+  name: string;
+  ruleType: RuleType;
+  scoreDelta: number;
+}
+
+export interface CreateRuleResponse {
+  rule: {
+    id: number;
+    name: string;
+    ruleType: RuleType;
+    scoreDelta: number;
+  };
+}
+
 export interface UpdateRuleRequest {
   name: string;
   ruleType: RuleType;
@@ -146,9 +161,9 @@ export interface UpdateRuleRequest {
 
 export interface UpdateRuleResponse {
   rule: {
-    Id: number;
-    Name: string;
-    RuleType: RuleType;
-    ScoreDelta: number;
+    id: number;
+    name: string;
+    ruleType: RuleType;
+    scoreDelta: number;
   };
 }

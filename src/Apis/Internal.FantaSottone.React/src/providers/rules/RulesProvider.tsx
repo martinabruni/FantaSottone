@@ -4,6 +4,8 @@ import {
   RuleWithAssignment,
   UpdateRuleRequest,
   UpdateRuleResponse,
+  CreateRuleRequest,
+  CreateRuleResponse,
 } from "@/types/dto";
 import { ITransport } from "@/lib/http/Transport";
 import { createTransport } from "@/lib/http/transportFactory";
@@ -21,6 +23,11 @@ interface RulesContextValue {
     ruleId: number,
     request: UpdateRuleRequest
   ) => Promise<UpdateRuleResponse>;
+  createRule: (
+    gameId: number,
+    request: CreateRuleRequest
+  ) => Promise<CreateRuleResponse>;
+  deleteRule: (gameId: number, ruleId: number) => Promise<void>;
 }
 
 const RulesContext = createContext<RulesContextValue | undefined>(undefined);
@@ -58,10 +65,29 @@ export function RulesProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const createRule = async (
+    gameId: number,
+    request: CreateRuleRequest
+  ): Promise<CreateRuleResponse> => {
+    return transport.post<CreateRuleRequest, CreateRuleResponse>(
+      `/api/games/${gameId}/rules`,
+      request
+    );
+  };
+
+  const deleteRule = async (
+    gameId: number,
+    ruleId: number
+  ): Promise<void> => {
+    await transport.delete<void>(`/api/games/${gameId}/rules/${ruleId}`);
+  };
+
   const value: RulesContextValue = {
     getRules,
     assignRule,
     updateRule,
+    createRule,
+    deleteRule,
   };
 
   return (
