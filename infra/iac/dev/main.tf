@@ -128,7 +128,7 @@ resource "azurerm_key_vault" "main" {
   soft_delete_retention_days = 7
   purge_protection_enabled   = false
 
-  enable_rbac_authorization = false
+  enable_rbac_authorization = true
 
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id
@@ -147,16 +147,26 @@ resource "azurerm_key_vault" "main" {
   tags = var.tags
 }
 
-# Access Policy separata per la Web API (risolve il ciclo di dipendenze)
-resource "azurerm_key_vault_access_policy" "api" {
-  key_vault_id = azurerm_key_vault.main.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_linux_web_app.api.identity[0].principal_id
+# ========================================
+# RBAC ASSIGNMENTS per Key Vault
+# ========================================
 
-  secret_permissions = [
-    "Get",
-    "List"
-  ]
+# 1. Utente corrente - Key Vault Administrator
+#    Serve per creare/gestire secrets via Terraform
+resource "azurerm_role_assignment" "kv_admin_current_user" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+# 2. Web API - Key Vault Secrets User
+#    Serve per leggere secrets in runtime
+resource "azurerm_role_assignment" "kv_secrets_user_api" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_linux_web_app.api.identity[0].principal_id
+
+  depends_on = [azurerm_linux_web_app.api]
 }
 
 # SQL Server
@@ -201,6 +211,7 @@ resource "azurerm_key_vault_secret" "sql_connection_string" {
   key_vault_id = azurerm_key_vault.main.id
 
   depends_on = [
-    azurerm_key_vault.main
+    azurerm_key_vault.main,
+    azurerm_role_assignment.kv_admin_current_user # ← NUOVO
   ]
 }
