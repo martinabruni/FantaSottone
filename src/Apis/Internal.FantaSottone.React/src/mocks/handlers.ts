@@ -19,7 +19,6 @@ import {
   ConflictError,
   NotFoundError,
   UnauthorizedError,
-  ForbiddenError,
 } from "@/lib/http/errors";
 import { GameStatus } from "@/types/entities";
 
@@ -61,15 +60,33 @@ export const handlers = {
   },
 
   // Game handlers
+  // src/Apis/Internal.FantaSottone.React/src/mocks/handlers.ts
+  // (Modifico solo la funzione startGame)
+
   startGame: async (request: StartGameRequest): Promise<StartGameResponse> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // Step 1: Create creator player first
+    // Step 1: Validate - creator exists
     const creatorData = request.players.find((p) => p.isCreator);
     if (!creatorData) {
       throw new Error("At least one player must be marked as creator");
     }
 
+    // FEATURE 1: Validazione minimo 2 giocatori (1 creatore + 1 normale)
+    const creatorCount = request.players.filter((p) => p.isCreator).length;
+    const normalPlayerCount = request.players.filter(
+      (p) => !p.isCreator
+    ).length;
+
+    if (creatorCount === 0) {
+      throw new Error("At least one creator is required");
+    }
+
+    if (normalPlayerCount === 0) {
+      throw new Error("At least one normal player (non-creator) is required");
+    }
+
+    // Step 2: Create creator player first
     const creatorPlayer = dataStore.createPlayer({
       GameId: 0, // Temporary
       Username: creatorData.username,
@@ -78,7 +95,7 @@ export const handlers = {
       CurrentScore: request.initialScore,
     });
 
-    // Step 2: Create game
+    // Step 3: Create game
     const game = dataStore.createGame({
       Name: request.name,
       InitialScore: request.initialScore,
@@ -87,11 +104,11 @@ export const handlers = {
       WinnerPlayerId: null,
     });
 
-    // Step 3: Update creator with gameId
+    // Step 4: Update creator with gameId
     creatorPlayer.GameId = game.Id;
     dataStore.updatePlayer(creatorPlayer.Id, { GameId: game.Id });
 
-    // Step 4: Create other players
+    // Step 5: Create other players
     const credentials: StartGameResponse["credentials"] = [
       {
         username: creatorPlayer.Username,
@@ -118,7 +135,7 @@ export const handlers = {
         });
       });
 
-    // Step 5: Create rules
+    // Step 6: Create rules
     request.rules.forEach((r) => {
       dataStore.createRule({
         GameId: game.Id,
@@ -144,12 +161,12 @@ export const handlers = {
 
     return players
       .map((p) => ({
-        Id: p.Id,
-        Username: p.Username,
-        CurrentScore: p.CurrentScore,
-        IsCreator: p.IsCreator,
+        id: p.Id,
+        username: p.Username,
+        currentScore: p.CurrentScore,
+        isCreator: p.IsCreator,
       }))
-      .sort((a, b) => b.CurrentScore - a.CurrentScore);
+      .sort((a, b) => b.currentScore - a.currentScore);
   },
 
   getRules: async (gameId: number): Promise<RuleWithAssignment[]> => {
@@ -182,10 +199,10 @@ export const handlers = {
 
       return {
         rule: {
-          Id: rule.Id,
-          Name: rule.Name,
-          RuleType: rule.RuleType,
-          ScoreDelta: rule.ScoreDelta,
+          id: rule.Id,
+          name: rule.Name,
+          ruleType: rule.RuleType,
+          scoreDelta: rule.ScoreDelta,
         },
         assignment: assignmentData,
       };
@@ -337,9 +354,9 @@ export const handlers = {
       const winnerPlayer = dataStore.getPlayer(game.WinnerPlayerId);
       if (winnerPlayer) {
         winner = {
-          Id: winnerPlayer.Id,
-          Username: winnerPlayer.Username,
-          CurrentScore: winnerPlayer.CurrentScore,
+          id: winnerPlayer.Id,
+          username: winnerPlayer.Username,
+          currentScore: winnerPlayer.CurrentScore,
         };
       }
     }
@@ -416,10 +433,10 @@ export const handlers = {
         currentScore: winner.CurrentScore,
       },
       leaderboard: sortedPlayers.map((p) => ({
-        Id: p.Id,
-        Username: p.Username,
-        CurrentScore: p.CurrentScore,
-        IsCreator: p.IsCreator,
+        id: p.Id,
+        username: p.Username,
+        currentScore: p.CurrentScore,
+        isCreator: p.IsCreator,
       })),
     };
   },

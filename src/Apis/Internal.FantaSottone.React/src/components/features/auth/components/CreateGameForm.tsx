@@ -1,3 +1,5 @@
+// src/Apis/Internal.FantaSottone.React/src/components/features/auth/components/CreateGameForm.tsx
+
 import { useState } from "react";
 import {
   Card,
@@ -11,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useGames } from "@/providers/games/GamesProvider";
+import { useAuth } from "@/providers/auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
 import { RuleType } from "@/types/entities";
@@ -39,12 +42,9 @@ export function CreateGameForm() {
   ]);
   const [rules, setRules] = useState<RuleInput[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showCredentials, setShowCredentials] = useState(false);
-  const [credentials, setCredentials] = useState<
-    Array<{ username: string; accessCode: string }>
-  >([]);
 
   const { startGame } = useGames();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -116,7 +116,31 @@ export function CreateGameForm() {
       toast({
         variant: "error",
         title: "Errore di validazione",
-        description: "Tutti i giocatori devono avere nome utente e codice di accesso",
+        description:
+          "Tutti i giocatori devono avere nome utente e codice di accesso",
+      });
+      return;
+    }
+
+    // FEATURE 1: Validazione minimo 2 giocatori (1 creatore + 1 normale)
+    const creatorCount = players.filter((p) => p.isCreator).length;
+    const normalPlayerCount = players.filter((p) => !p.isCreator).length;
+
+    if (creatorCount === 0) {
+      toast({
+        variant: "error",
+        title: "Errore di validazione",
+        description: "Deve esserci almeno un creatore",
+      });
+      return;
+    }
+
+    if (normalPlayerCount === 0) {
+      toast({
+        variant: "error",
+        title: "Errore di validazione",
+        description:
+          "Deve esserci almeno un giocatore normale oltre al creatore",
       });
       return;
     }
@@ -133,6 +157,7 @@ export function CreateGameForm() {
     setLoading(true);
 
     try {
+      // Crea la partita
       const result = await startGame({
         name: gameName,
         initialScore: parseInt(initialScore),
@@ -148,63 +173,65 @@ export function CreateGameForm() {
         })),
       });
 
-      setCredentials(result.credentials);
-      setShowCredentials(true);
-
       toast({
         variant: "success",
         title: "Partita creata!",
-        description: "Salva le credenziali qui sotto per accedere alla partita",
+        description: "Login automatico in corso...",
       });
+
+      // FEATURE 2: Login automatico del creatore
+      const creatorCredentials = result.credentials.find((c) => c.isCreator);
+      if (!creatorCredentials) {
+        toast({
+          variant: "error",
+          title: "Errore",
+          description:
+            "Impossibile trovare le credenziali del creatore per il login automatico",
+        });
+        return;
+      }
+
+      // Esegui il login del creatore
+      const loginResult = await login({
+        username: creatorCredentials.username,
+        accessCode: creatorCredentials.accessCode,
+      });
+
+      if (loginResult) {
+        toast({
+          variant: "success",
+          title: "Accesso riuscito",
+          description: `Benvenuto nella partita, ${loginResult.player.username}!`,
+        });
+        // Naviga alla pagina di gioco
+        navigate(`/game/${result.gameId}`);
+      } else {
+        toast({
+          variant: "error",
+          title: "Login automatico fallito",
+          description:
+            "Partita creata con successo, ma il login automatico è fallito",
+        });
+      }
     } catch (error) {
       toast({
         variant: "error",
         title: "Creazione partita non riuscita",
         description:
-          error instanceof Error ? error.message : "Si e verificato un errore",
+          error instanceof Error ? error.message : "Si è verificato un errore",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  if (showCredentials) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Partita creata!</CardTitle>
-          <CardDescription>
-            Condividi queste credenziali con i giocatori
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            {credentials.map((cred, idx) => (
-              <div key={idx} className="p-3 border rounded-md space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{cred.username}</span>
-                  {idx === 0 && <Badge variant="secondary">Creatore</Badge>}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Codice: {cred.accessCode}
-                </p>
-              </div>
-            ))}
-          </div>
-          <Button onClick={() => navigate("/")} className="w-full">
-            Vai al login
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card>
       <CardHeader>
         <CardTitle>Crea nuova partita</CardTitle>
         <CardDescription>
-          Configura una nuova partita con giocatori e regole
+          Configura una nuova partita con giocatori e regole (minimo 2
+          giocatori: 1 creatore + 1 normale)
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -237,7 +264,7 @@ export function CreateGameForm() {
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label>Giocatori</Label>
+              <Label>Giocatori (min. 2: 1 creatore + 1 normale)</Label>
               <Button
                 type="button"
                 size="sm"
@@ -365,7 +392,9 @@ export function CreateGameForm() {
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creazione..." : "Crea partita"}
+            {loading
+              ? "Creazione e login in corso..."
+              : "Crea partita e accedi"}
           </Button>
         </form>
       </CardContent>

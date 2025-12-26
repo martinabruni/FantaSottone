@@ -100,7 +100,7 @@ export interface GameStatusResponse {
   };
   winner: {
     id: number;
-    csername: string;
+    username: string;
     currentScore: number;
   } | null;
 }

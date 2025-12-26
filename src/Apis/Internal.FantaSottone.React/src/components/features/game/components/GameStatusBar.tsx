@@ -59,7 +59,7 @@ export function GameStatusBar({ onStatusChange }: GameStatusBarProps) {
             <Crown className="h-5 w-5 text-primary" />
             <div>
               <p className="font-semibold">
-                Vincitore: {status.winner.csername}
+                Vincitore: {status.winner.username}
               </p>
               <p className="text-sm text-muted-foreground">
                 Punteggio finale: {status.winner.currentScore}
