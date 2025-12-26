@@ -8,13 +8,13 @@ set -e
 ENVIRONMENT="${1:-dev}"
 
 if [ "$ENVIRONMENT" = "dev" ]; then
-    RESOURCE_GROUP="rg-webapp-dev"
-    WEB_API_NAME="api-backend-dev"
-    KEY_VAULT_NAME="kv-webapp-dev-001"
+    RESOURCE_GROUP="rg-fantastn-webapp-dev"
+    WEB_API_NAME="api-fantastn-backend-dev"
+    KEY_VAULT_NAME="kv-fantastn-app-dev"
 elif [ "$ENVIRONMENT" = "prod" ]; then
-    RESOURCE_GROUP="rg-webapp-prod"
-    WEB_API_NAME="api-backend-prod"
-    KEY_VAULT_NAME="kv-webapp-prod-001"
+    RESOURCE_GROUP="rg-fantastn-webapp-prod"
+    WEB_API_NAME="api-fantastn-backend-prod"
+    KEY_VAULT_NAME="kv-fantastn-app-prod"
 else
     echo "❌ Ambiente non valido: $ENVIRONMENT"
     echo "Uso: ./post-terraform-setup.sh [dev|prod]"
