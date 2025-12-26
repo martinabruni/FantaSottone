@@ -44,8 +44,11 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
     {
         try
         {
-            var entity = await _dbSet.FindAsync([id], cancellationToken);
-            
+            // Use AsNoTracking to avoid tracking issues
+            var entity = await _dbSet
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => EF.Property<TKey>(e, "Id").Equals(id), cancellationToken);
+
             if (entity == null)
             {
                 _logger.LogWarning("Entity {EntityType} with ID {Id} not found", typeof(TDomainEntity).Name, id);
@@ -66,7 +69,11 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
     {
         try
         {
-            var entities = await _dbSet.ToListAsync(cancellationToken);
+            // Use AsNoTracking to avoid tracking issues
+            var entities = await _dbSet
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+
             var domainEntities = entities.Adapt<IEnumerable<TDomainEntity>>();
             return AppResult<IEnumerable<TDomainEntity>>.Success(domainEntities);
         }
@@ -89,7 +96,7 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
             _logger.LogInformation("Created {EntityType} with ID {Id}", typeof(TDomainEntity).Name, savedEntity.Id);
             return AppResult<TDomainEntity>.Created(savedEntity);
         }
-        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("UNIQUE") == true || 
+        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("UNIQUE") == true ||
                                             ex.InnerException?.Message.Contains("duplicate") == true)
         {
             _logger.LogWarning(ex, "Unique constraint violation when creating {EntityType}", typeof(TDomainEntity).Name);
@@ -106,11 +113,24 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
     {
         try
         {
+            var keyValue = (TKey)(object)entity.Id;
+
+            // Trova l'entità esistente (viene tracciata automaticamente)
+            var existingEntity = await _dbSet.FindAsync([keyValue], cancellationToken);
+
+            if (existingEntity == null)
+            {
+                _logger.LogWarning("Entity {EntityType} with ID {Id} not found", typeof(TDomainEntity).Name, keyValue);
+                return AppResult<TDomainEntity>.NotFound($"{typeof(TDomainEntity).Name} with ID {keyValue} not found");
+            }
+
+            // Mappa i nuovi valori sull'entità esistente (già tracciata)
             var dbEntity = entity.Adapt<TDbEntity>();
-            _dbSet.Update(dbEntity);
+            _context.Entry(existingEntity).CurrentValues.SetValues(dbEntity);
+
             await _context.SaveChangesAsync(cancellationToken);
 
-            var updatedEntity = dbEntity.Adapt<TDomainEntity>();
+            var updatedEntity = existingEntity.Adapt<TDomainEntity>();
             _logger.LogInformation("Updated {EntityType} with ID {Id}", typeof(TDomainEntity).Name, entity.Id);
             return AppResult<TDomainEntity>.Success(updatedEntity);
         }
@@ -119,7 +139,7 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
             _logger.LogWarning(ex, "Concurrency error updating {EntityType} with ID {Id}", typeof(TDomainEntity).Name, entity.Id);
             return AppResult<TDomainEntity>.Conflict("The entity was modified by another process", "CONCURRENCY_ERROR");
         }
-        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("UNIQUE") == true || 
+        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("UNIQUE") == true ||
                                             ex.InnerException?.Message.Contains("duplicate") == true)
         {
             _logger.LogWarning(ex, "Unique constraint violation when updating {EntityType}", typeof(TDomainEntity).Name);
@@ -132,6 +152,43 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
         }
     }
 
+    private async Task DetachIfTrackedAsync(TKey id, CancellationToken cancellationToken)
+    {
+        // 1) prova a prendere l'entità già tracciata (Local)
+        var trackedLocal = _context.Set<TDbEntity>().Local
+            .FirstOrDefault(e => Equals(EF.Property<TKey>(e, "Id"), id));
+
+        if (trackedLocal is not null)
+        {
+            _context.Entry(trackedLocal).State = EntityState.Detached;
+            _logger.LogDebug(
+                "Detached tracked {DbEntityType} (Local) with ID {Id}",
+                typeof(TDbEntity).Name,
+                id);
+            return;
+        }
+
+        // 2) se non è in Local, Find può attaccarla al contesto se esiste in DB
+        //    Serve solo se in qualche punto precedente (stessa UoW) hai già fatto Find/Attach in altro modo.
+        var tracked = await _context.Set<TDbEntity>().FindAsync(new object[] { id }, cancellationToken);
+        if (tracked is not null)
+        {
+            _context.Entry(tracked).State = EntityState.Detached;
+            _logger.LogDebug(
+                "Detached tracked {DbEntityType} (Find) with ID {Id}",
+                typeof(TDbEntity).Name,
+                id);
+        }
+    }
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+    {
+        var message = ex.InnerException?.Message ?? ex.Message;
+        return message.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("duplicate", StringComparison.OrdinalIgnoreCase);
+    }
+
+
     public virtual async Task<AppResult> DeleteAsync(TDomainEntity entity, CancellationToken cancellationToken = default)
     {
         try
@@ -143,7 +200,7 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
             _logger.LogInformation("Deleted {EntityType} with ID {Id}", typeof(TDomainEntity).Name, entity.Id);
             return AppResult.Success();
         }
-        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("REFERENCE") == true || 
+        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("REFERENCE") == true ||
                                             ex.InnerException?.Message.Contains("FK_") == true)
         {
             _logger.LogWarning(ex, "Foreign key constraint violation when deleting {EntityType}", typeof(TDomainEntity).Name);
