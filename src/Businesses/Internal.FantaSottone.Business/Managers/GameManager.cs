@@ -1,3 +1,5 @@
+// src/Businesses/Internal.FantaSottone.Business/Managers/GameManager.cs
+
 namespace Internal.FantaSottone.Business.Managers;
 
 using Internal.FantaSottone.Domain.Managers;
@@ -37,6 +39,16 @@ internal sealed class GameManager : IGameManager
 
             if (players.Count == 0)
                 return AppResult<StartGameResult>.BadRequest("At least one player is required");
+
+            // FEATURE 1: Validazione minimo 2 giocatori (1 creatore + 1 normale)
+            var creatorCount = players.Count(p => p.IsCreator);
+            var normalPlayerCount = players.Count(p => !p.IsCreator);
+
+            if (creatorCount == 0)
+                return AppResult<StartGameResult>.BadRequest("At least one creator is required");
+
+            if (normalPlayerCount == 0)
+                return AppResult<StartGameResult>.BadRequest("At least one normal player (non-creator) is required");
 
             // Step 2: Create the creator player first
             var creatorPlayer = new Player
