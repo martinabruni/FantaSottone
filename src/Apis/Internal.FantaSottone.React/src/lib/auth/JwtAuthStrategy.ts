@@ -34,10 +34,10 @@ export class JwtAuthStrategy implements IAuthStrategy {
   saveSession(response: LoginResponse): void {
     const session: SessionData = {
       token: response.token,
-      playerId: response.player.Id,
-      gameId: response.player.GameId,
-      username: response.player.Username,
-      role: getRoleFromIsCreator(response.player.IsCreator),
+      playerId: response.player.id,
+      gameId: response.player.gameId,
+      username: response.player.username,
+      role: getRoleFromIsCreator(response.player.isCreator),
     };
 
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));

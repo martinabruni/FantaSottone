@@ -43,19 +43,19 @@ export const handlers = {
     return {
       token: `mock-token-${player.Id}-${Date.now()}`,
       game: {
-        Id: game.Id,
-        Name: game.Name,
-        InitialScore: game.InitialScore,
-        Status: game.Status,
-        CreatorPlayerId: game.CreatorPlayerId,
-        WinnerPlayerId: game.WinnerPlayerId,
+        id: game.Id,
+        name: game.Name,
+        initialScore: game.InitialScore,
+        status: game.Status,
+        creatorPlayerId: game.CreatorPlayerId,
+        winnerPlayerId: game.WinnerPlayerId,
       },
       player: {
-        Id: player.Id,
-        GameId: player.GameId,
-        Username: player.Username,
-        IsCreator: player.IsCreator,
-        CurrentScore: player.CurrentScore,
+        id: player.Id,
+        gameId: player.GameId,
+        username: player.Username,
+        isCreator: player.IsCreator,
+        currentScore: player.CurrentScore,
       },
     };
   },
@@ -212,10 +212,10 @@ export const handlers = {
 
     return {
       rule: {
-        Id: rule.Id,
-        Name: rule.Name,
-        RuleType: rule.RuleType,
-        ScoreDelta: rule.ScoreDelta,
+        id: rule.Id,
+        name: rule.Name,
+        ruleType: rule.RuleType,
+        scoreDelta: rule.ScoreDelta,
       },
     };
   },
@@ -235,7 +235,9 @@ export const handlers = {
     // Check if assigned
     const assignment = dataStore.getAssignmentByRuleId(ruleId);
     if (assignment) {
-      throw new ConflictError("Cannot delete a rule that has already been assigned");
+      throw new ConflictError(
+        "Cannot delete a rule that has already been assigned"
+      );
     }
 
     dataStore.deleteRule(ruleId);
@@ -312,8 +314,8 @@ export const handlers = {
         scoreDeltaApplied: assignment.ScoreDeltaApplied,
       },
       updatedPlayer: {
-        Id: updatedPlayer.Id,
-        CurrentScore: updatedPlayer.CurrentScore,
+        id: updatedPlayer.Id,
+        currentScore: updatedPlayer.CurrentScore,
       },
       gameStatus: {
         status: gameStatus,
@@ -344,9 +346,9 @@ export const handlers = {
 
     return {
       game: {
-        Id: game.Id,
-        Status: game.Status,
-        WinnerPlayerId: game.WinnerPlayerId ?? undefined,
+        id: game.Id,
+        status: game.Status,
+        winnerPlayerId: game.WinnerPlayerId ?? undefined,
       },
       winner,
     };
@@ -404,14 +406,14 @@ export const handlers = {
 
     return {
       game: {
-        Id: game.Id,
-        Status: GameStatus.Ended,
-        WinnerPlayerId: winner.Id,
+        id: game.Id,
+        status: GameStatus.Ended,
+        winnerPlayerId: winner.Id,
       },
       winner: {
-        Id: winner.Id,
-        Username: winner.Username,
-        CurrentScore: winner.CurrentScore,
+        id: winner.Id,
+        username: winner.Username,
+        currentScore: winner.CurrentScore,
       },
       leaderboard: sortedPlayers.map((p) => ({
         Id: p.Id,
@@ -455,10 +457,10 @@ export const handlers = {
 
     return {
       rule: {
-        Id: updatedRule.Id,
-        Name: updatedRule.Name,
-        RuleType: updatedRule.RuleType,
-        ScoreDelta: updatedRule.ScoreDelta,
+        id: updatedRule.Id,
+        name: updatedRule.Name,
+        ruleType: updatedRule.RuleType,
+        scoreDelta: updatedRule.ScoreDelta,
       },
     };
   },

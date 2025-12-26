@@ -17,7 +17,8 @@ import { CreateRuleDialog, CreateRuleData } from "./CreateRuleDialog";
 
 export function RulesTab() {
   const { gameId } = useParams<{ gameId: string }>();
-  const { getRules, assignRule, updateRule, createRule, deleteRule } = useRules();
+  const { getRules, assignRule, updateRule, createRule, deleteRule } =
+    useRules();
   const { session } = useAuth();
   const { toast } = useToast();
   const [assigning, setAssigning] = useState<number | null>(null);
@@ -210,7 +211,7 @@ export function RulesTab() {
 
             return (
               <div
-                key={rule.Id}
+                key={rule.id}
                 className={`flex items-center justify-between p-4 rounded-lg border ${
                   isAssignedToMe
                     ? "bg-blue-50 border-blue-400 dark:bg-blue-950/40 dark:border-blue-800"
@@ -219,17 +220,17 @@ export function RulesTab() {
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="font-semibold">{rule.Name}</span>
+                    <span className="font-semibold">{rule.name}</span>
                     <Badge
                       variant={
-                        rule.RuleType === RuleType.Bonus
+                        rule.ruleType === RuleType.Bonus
                           ? "default"
                           : "destructive"
                       }
                     >
-                      {rule.RuleType === RuleType.Bonus ? "Bonus" : "Malus"}{" "}
-                      {rule.ScoreDelta > 0 ? "+" : ""}
-                      {rule.ScoreDelta}
+                      {rule.ruleType === RuleType.Bonus ? "Bonus" : "Malus"}{" "}
+                      {rule.scoreDelta > 0 ? "+" : ""}
+                      {rule.scoreDelta}
                     </Badge>
                   </div>
 
@@ -255,8 +256,8 @@ export function RulesTab() {
                     <ActionButton
                       actionType="error"
                       size="sm"
-                      onClick={() => handleDeleteRule(rule.Id)}
-                      disabled={deletingRule === rule.Id}
+                      onClick={() => handleDeleteRule(rule.id)}
+                      disabled={deletingRule === rule.id}
                     >
                       <Trash2 className="h-4 w-4" />
                     </ActionButton>
@@ -268,11 +269,11 @@ export function RulesTab() {
                       size="sm"
                       onClick={() =>
                         setEditingRule({
-                          id: rule.Id,
+                          id: rule.id,
                           data: {
-                            name: rule.Name,
-                            ruleType: rule.RuleType,
-                            scoreDelta: rule.ScoreDelta,
+                            name: rule.name,
+                            ruleType: rule.ruleType,
+                            scoreDelta: rule.scoreDelta,
                           },
                         })
                       }
@@ -283,11 +284,11 @@ export function RulesTab() {
 
                   <ActionButton
                     actionType={isAssignedToMe ? "info" : "success"}
-                    onClick={() => handleAssign(rule.Id)}
-                    disabled={!canAssign || assigning === rule.Id}
+                    onClick={() => handleAssign(rule.id)}
+                    disabled={!canAssign || assigning === rule.id}
                     size="sm"
                   >
-                    {assigning === rule.Id
+                    {assigning === rule.id
                       ? "Assegnando..."
                       : isAssignedToMe
                       ? "Assegnata a te"

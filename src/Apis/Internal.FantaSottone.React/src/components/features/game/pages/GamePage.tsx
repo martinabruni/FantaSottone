@@ -52,11 +52,11 @@ export function GamePage() {
   const handleEndGame = async () => {
     try {
       const response = await endGame(parseInt(gameId));
-      setGameStatus(response.game.Status);
+      setGameStatus(response.game.status);
       toast({
         variant: "success",
         title: "Partita terminata",
-        description: `Vincitore: ${response.winner.Username} con ${response.winner.CurrentScore} punti!`,
+        description: `Vincitore: ${response.winner.username} con ${response.winner.currentScore} punti!`,
       });
     } catch (error) {
       toast({

@@ -48,11 +48,11 @@ export function LeaderboardTab() {
   return (
     <div className="space-y-3">
       {leaderboard.map((player, index) => {
-        const isCurrentPlayer = session?.playerId === player.Id;
+        const isCurrentPlayer = session?.playerId === player.id;
 
         return (
           <div
-            key={player.Id}
+            key={player.id}
             className={`flex items-center justify-between p-4 rounded-lg border ${
               isCurrentPlayer
                 ? "bg-blue-50 border-blue-400 dark:bg-blue-950/40 dark:border-blue-800"
@@ -65,16 +65,16 @@ export function LeaderboardTab() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">{player.Username}</span>
+                  <span className="font-semibold">{player.username}</span>
                   {isCurrentPlayer && <Badge variant="secondary">Tu</Badge>}
-                  {player.IsCreator && (
+                  {player.isCreator && (
                     <Badge variant="outline">Creatore</Badge>
                   )}
                 </div>
               </div>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-bold">{player.CurrentScore}</span>
+              <span className="text-2xl font-bold">{player.currentScore}</span>
               <p className="text-xs text-muted-foreground">punti</p>
             </div>
           </div>
