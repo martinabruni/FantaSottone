@@ -98,7 +98,7 @@ export function GamePage() {
         </TabsContent>
 
         <TabsContent value="rules" className="mt-6">
-          <RulesTab />
+          <RulesTab gameStatus={gameStatus} />
         </TabsContent>
       </Tabs>
 
