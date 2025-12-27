@@ -65,10 +65,10 @@ export function LoginForm() {
   };
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
-        <CardTitle>Entra in partita</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-xl sm:text-2xl">Entra in partita</CardTitle>
+        <CardDescription className="text-sm sm:text-base">
           Inserisci le tue credenziali per entrare in una partita esistente
         </CardDescription>
       </CardHeader>
@@ -83,6 +83,7 @@ export function LoginForm() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={loading}
+              className="text-base"
             />
           </div>
           <div className="space-y-2">
@@ -94,13 +95,18 @@ export function LoginForm() {
               value={accessCode}
               onChange={(e) => setAccessCode(e.target.value)}
               disabled={loading}
+              className="text-base"
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button 
+            type="submit" 
+            className="w-full h-12 text-base sm:text-lg" 
+            disabled={loading}
+          >
             {loading ? "Accesso in corso..." : "Accedi"}
           </Button>
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p>Credenziali di test:</p>
+          <div className="text-xs sm:text-sm text-muted-foreground space-y-1 pt-2">
+            <p className="font-semibold">Credenziali di test:</p>
             <p>Nome utente: test1, Codice: code1 (Creatore)</p>
             <p>Nome utente: test2, Codice: code2 (Giocatore)</p>
           </div>
