@@ -7,7 +7,7 @@ import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ActionButton } from "@/components/common/ActionButton";
 import { Badge } from "@/components/ui/badge";
-import { RuleType } from "@/types/entities";
+import { RuleType, GameStatus } from "@/types/entities";
 import { Clock, CheckCircle2, Pencil, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import { useState } from "react";
@@ -15,7 +15,11 @@ import { ConflictError } from "@/lib/http/errors";
 import { EditRuleDialog, EditRuleData } from "./EditRuleDialog";
 import { CreateRuleDialog, CreateRuleData } from "./CreateRuleDialog";
 
-export function RulesTab() {
+interface RulesTabProps {
+  gameStatus?: GameStatus | null;
+}
+
+export function RulesTab({ gameStatus }: RulesTabProps) {
   const { gameId } = useParams<{ gameId: string }>();
   const { getRules, assignRule, updateRule, createRule, deleteRule } =
     useRules();
@@ -126,6 +130,7 @@ export function RulesTab() {
       });
 
       await refetch();
+      setCreatingRule(false);
     } catch (err) {
       toast({
         variant: "error",
@@ -178,11 +183,12 @@ export function RulesTab() {
   if (error) return <ErrorState message={error.message} onRetry={refetch} />;
 
   const isCreator = session?.role === "creator";
+  const isGameEnded = gameStatus === GameStatus.Ended;
 
   return (
     <>
       <div className="space-y-4">
-        {isCreator && (
+        {isCreator && !isGameEnded && (
           <div className="flex justify-end">
             <ActionButton
               actionType="success"
@@ -206,8 +212,8 @@ export function RulesTab() {
             const isAssignedToMe =
               assignment?.assignedToPlayerId === session?.playerId;
             const canAssign = !isAssigned && !assigning;
-            const canEdit = isCreator && !isAssigned;
-            const canDelete = isCreator && !isAssigned;
+            const canEdit = isCreator && !isAssigned && !isGameEnded;
+            const canDelete = isCreator && !isAssigned && !isGameEnded;
 
             return (
               <div
