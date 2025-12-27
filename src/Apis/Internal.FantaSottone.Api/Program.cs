@@ -9,8 +9,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Configuration
 var configuration = builder.Configuration;
-var connectionString = configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found");
+var connectionString = configuration["SqlConnectionString"]
+    ?? throw new InvalidOperationException("SqlConnectionString not found");
+
+// Add Application Insights
+var appInsightsConnectionString = configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+if (!string.IsNullOrEmpty(appInsightsConnectionString))
+{
+    builder.Services.AddApplicationInsightsTelemetry(options =>
+    {
+        options.ConnectionString = appInsightsConnectionString;
+    });
+}
 
 // Add layers services
 builder.Services.AddInfrastructureServices(connectionString);
@@ -83,7 +93,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Add Health Checks
+// Add Health Checks with Application Insights
 builder.Services.AddHealthChecks();
 
 // Add CORS (configure as needed)
