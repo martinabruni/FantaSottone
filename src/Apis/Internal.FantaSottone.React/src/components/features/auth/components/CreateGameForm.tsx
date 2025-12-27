@@ -1,5 +1,3 @@
-// src/Apis/Internal.FantaSottone.React/src/components/features/auth/components/CreateGameForm.tsx
-
 import { useState } from "react";
 import {
   Card,
@@ -12,13 +10,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { useGames } from "@/providers/games/GamesProvider";
+import { Plus, Trash2, UserCheck } from "lucide-react";
 import { useAuth } from "@/providers/auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
+import { useGames } from "@/providers/games/GamesProvider";
 import { RuleType } from "@/types/entities";
-import { Plus, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PlayerInput {
   id: string;
@@ -38,15 +42,26 @@ export function CreateGameForm() {
   const [gameName, setGameName] = useState("");
   const [initialScore, setInitialScore] = useState("100");
   const [players, setPlayers] = useState<PlayerInput[]>([
-    { id: "1", username: "", accessCode: "", isCreator: true },
+    {
+      id: "1",
+      username: "",
+      accessCode: "",
+      isCreator: true,
+    },
+    {
+      id: "2",
+      username: "",
+      accessCode: "",
+      isCreator: false,
+    },
   ]);
   const [rules, setRules] = useState<RuleInput[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const { startGame } = useGames();
   const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { startGame } = useGames();
 
   const addPlayer = () => {
     setPlayers([
@@ -61,9 +76,15 @@ export function CreateGameForm() {
   };
 
   const removePlayer = (id: string) => {
-    if (players.length > 1) {
-      setPlayers(players.filter((p) => p.id !== id));
+    if (players.length <= 2) {
+      toast({
+        variant: "error",
+        title: "Errore",
+        description: "Servono almeno 2 giocatori",
+      });
+      return;
     }
+    setPlayers(players.filter((p) => p.id !== id));
   };
 
   const updatePlayer = (
@@ -122,7 +143,6 @@ export function CreateGameForm() {
       return;
     }
 
-    // FEATURE 1: Validazione minimo 2 giocatori (1 creatore + 1 normale)
     const creatorCount = players.filter((p) => p.isCreator).length;
     const normalPlayerCount = players.filter((p) => !p.isCreator).length;
 
@@ -157,7 +177,6 @@ export function CreateGameForm() {
     setLoading(true);
 
     try {
-      // Crea la partita
       const result = await startGame({
         name: gameName,
         initialScore: parseInt(initialScore),
@@ -179,7 +198,6 @@ export function CreateGameForm() {
         description: "Login automatico in corso...",
       });
 
-      // FEATURE 2: Login automatico del creatore
       const creatorCredentials = result.credentials.find((c) => c.isCreator);
       if (!creatorCredentials) {
         toast({
@@ -191,7 +209,6 @@ export function CreateGameForm() {
         return;
       }
 
-      // Esegui il login del creatore
       const loginResult = await login({
         username: creatorCredentials.username,
         accessCode: creatorCredentials.accessCode,
@@ -203,7 +220,6 @@ export function CreateGameForm() {
           title: "Accesso riuscito",
           description: `Benvenuto nella partita, ${loginResult.player.username}!`,
         });
-        // Naviga alla pagina di gioco
         navigate(`/game/${result.gameId}`);
       } else {
         toast({
@@ -226,10 +242,12 @@ export function CreateGameForm() {
   };
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
-        <CardTitle>Crea nuova partita</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-xl sm:text-2xl">
+          Crea nuova partita
+        </CardTitle>
+        <CardDescription className="text-sm sm:text-base">
           Configura una nuova partita con giocatori e regole (minimo 2
           giocatori: 1 creatore + 1 normale)
         </CardDescription>
@@ -245,6 +263,7 @@ export function CreateGameForm() {
               value={gameName}
               onChange={(e) => setGameName(e.target.value)}
               disabled={loading}
+              className="text-base"
             />
           </div>
 
@@ -257,13 +276,14 @@ export function CreateGameForm() {
               value={initialScore}
               onChange={(e) => setInitialScore(e.target.value)}
               disabled={loading}
+              className="text-base"
             />
           </div>
 
           <Separator />
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <Label>Giocatori (min. 2: 1 creatore + 1 normale)</Label>
               <Button
                 type="button"
@@ -271,12 +291,13 @@ export function CreateGameForm() {
                 variant="outline"
                 onClick={addPlayer}
                 disabled={loading}
+                className="w-full sm:w-auto"
               >
                 <Plus className="h-4 w-4 mr-1" /> Aggiungi giocatore
               </Button>
             </div>
             {players.map((player, idx) => (
-              <div key={player.id} className="flex gap-2 items-end">
+              <div key={player.id} className="flex flex-col sm:flex-row gap-2">
                 <div className="flex-1 space-y-2">
                   <Input
                     placeholder="Nome utente"
@@ -285,6 +306,7 @@ export function CreateGameForm() {
                       updatePlayer(player.id, "username", e.target.value)
                     }
                     disabled={loading}
+                    className="text-base"
                   />
                 </div>
                 <div className="flex-1 space-y-2">
@@ -296,23 +318,51 @@ export function CreateGameForm() {
                       updatePlayer(player.id, "accessCode", e.target.value)
                     }
                     disabled={loading}
+                    className="text-base"
                   />
                 </div>
-                {idx === 0 ? (
-                  <Badge variant="secondary" className="h-10 px-3">
-                    Creatore
-                  </Badge>
-                ) : (
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => removePlayer(player.id)}
-                    disabled={loading}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
+                <div className="flex gap-2">
+                  {idx === 0 ? (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant={player.isCreator ? "default" : "outline"}
+                      className="h-10 w-10 flex-shrink-0"
+                      disabled
+                    >
+                      <UserCheck className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <>
+                      {/* <Button
+                        type="button"
+                        size="icon"
+                        variant={player.isCreator ? "default" : "outline"}
+                        onClick={() =>
+                          updatePlayer(
+                            player.id,
+                            "isCreator",
+                            !player.isCreator
+                          )
+                        }
+                        disabled={loading}
+                        className="h-10 w-10 flex-shrink-0"
+                      >
+                        <UserCheck className="h-4 w-4" />
+                      </Button> */}
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="destructive"
+                        onClick={() => removePlayer(player.id)}
+                        disabled={loading || players.length <= 2}
+                        className="h-10 w-10 flex-shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -320,15 +370,16 @@ export function CreateGameForm() {
           <Separator />
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <Label>Regole</Label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   onClick={() => addRule(RuleType.Bonus)}
                   disabled={loading}
+                  className="flex-1 sm:flex-none"
                 >
                   <Plus className="h-4 w-4 mr-1" /> Bonus
                 </Button>
@@ -338,13 +389,14 @@ export function CreateGameForm() {
                   variant="outline"
                   onClick={() => addRule(RuleType.Malus)}
                   disabled={loading}
+                  className="flex-1 sm:flex-none"
                 >
                   <Plus className="h-4 w-4 mr-1" /> Malus
                 </Button>
               </div>
             </div>
             {rules.map((rule) => (
-              <div key={rule.id} className="flex gap-2 items-end">
+              <div key={rule.id} className="flex flex-col sm:flex-row gap-2">
                 <div className="flex-1">
                   <Input
                     placeholder="Nome regola"
@@ -353,45 +405,65 @@ export function CreateGameForm() {
                       updateRule(rule.id, "name", e.target.value)
                     }
                     disabled={loading}
+                    className="text-base"
                   />
                 </div>
-                <div className="w-24">
+                <div className="flex gap-2">
+                  <Select
+                    value={rule.ruleType.toString()}
+                    onValueChange={(value: string) =>
+                      updateRule(rule.id, "ruleType", parseInt(value))
+                    }
+                    disabled={loading}
+                  >
+                    <SelectTrigger className="w-full sm:w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={RuleType.Bonus.toString()}>
+                        Bonus
+                      </SelectItem>
+                      <SelectItem value={RuleType.Malus.toString()}>
+                        Malus
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Input
                     type="number"
-                    placeholder="Punteggio"
-                    value={rule.scoreDelta}
+                    placeholder="Punti"
+                    value={Math.abs(rule.scoreDelta)}
                     onChange={(e) =>
                       updateRule(
                         rule.id,
                         "scoreDelta",
-                        parseInt(e.target.value)
+                        rule.ruleType === RuleType.Bonus
+                          ? Math.abs(parseInt(e.target.value) || 0)
+                          : -Math.abs(parseInt(e.target.value) || 0)
                       )
                     }
                     disabled={loading}
+                    className="w-20 sm:w-24 text-base"
                   />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="destructive"
+                    onClick={() => removeRule(rule.id)}
+                    disabled={loading}
+                    className="h-10 w-10 flex-shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Badge
-                  variant={
-                    rule.ruleType === RuleType.Bonus ? "default" : "destructive"
-                  }
-                  className="h-10 px-3"
-                >
-                  {rule.ruleType === RuleType.Bonus ? "Bonus" : "Malus"}
-                </Badge>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => removeRule(rule.id)}
-                  disabled={loading}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
             ))}
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full h-12 text-base sm:text-lg"
+            disabled={loading}
+          >
             {loading
               ? "Creazione e login in corso..."
               : "Crea partita e accedi"}
