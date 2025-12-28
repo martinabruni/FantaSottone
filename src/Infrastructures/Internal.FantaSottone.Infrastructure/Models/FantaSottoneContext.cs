@@ -21,6 +21,8 @@ public partial class FantaSottoneContext : DbContext
 
     public virtual DbSet<RuleEntity> RuleEntity { get; set; }
 
+    public virtual DbSet<UserEntity> UserEntity { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<GameEntity>(entity =>
@@ -52,13 +54,8 @@ public partial class FantaSottoneContext : DbContext
         {
             entity.HasIndex(e => new { e.GameId, e.CurrentScore }, "IX_PlayerEntity_GameId_CurrentScore").IsDescending(false, true);
 
-            entity.HasIndex(e => new { e.GameId, e.AccessCode }, "UX_PlayerEntity_GameId_AccessCode").IsUnique();
+            entity.HasIndex(e => new { e.GameId, e.UserId }, "UX_PlayerEntity_GameId_UserId").IsUnique();
 
-            entity.HasIndex(e => new { e.GameId, e.Username }, "UX_PlayerEntity_GameId_Username").IsUnique();
-
-            entity.Property(e => e.AccessCode)
-                .IsRequired()
-                .HasMaxLength(32);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(3)
                 .HasDefaultValueSql("(sysutcdatetime())")
@@ -68,14 +65,16 @@ public partial class FantaSottoneContext : DbContext
                 .HasPrecision(3)
                 .HasDefaultValueSql("(sysutcdatetime())")
                 .HasAnnotation("Relational:DefaultConstraintName", "DF_PlayerEntity_UpdatedAt");
-            entity.Property(e => e.Username)
-                .IsRequired()
-                .HasMaxLength(50);
 
             entity.HasOne(d => d.Game).WithMany(p => p.PlayerEntity)
                 .HasForeignKey(d => d.GameId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_PlayerEntity_GameEntity");
+
+            entity.HasOne(d => d.User).WithMany(p => p.PlayerEntity)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_PlayerEntity_UserEntity");
         });
 
         modelBuilder.Entity<RuleAssignmentEntity>(entity =>
@@ -135,6 +134,27 @@ public partial class FantaSottoneContext : DbContext
             entity.HasOne(d => d.Game).WithMany(p => p.RuleEntity)
                 .HasForeignKey(d => d.GameId)
                 .HasConstraintName("FK_RuleEntity_GameEntity");
+        });
+
+        modelBuilder.Entity<UserEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__UserEnti__3214EC07A951597A");
+
+            entity.HasIndex(e => e.Username, "UX_UserEntity_Username").IsUnique();
+
+            entity.Property(e => e.CreatedAt)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Email).HasMaxLength(100);
+            entity.Property(e => e.PasswordHash)
+                .IsRequired()
+                .HasMaxLength(255);
+            entity.Property(e => e.UpdatedAt)
+                .HasPrecision(3)
+                .HasDefaultValueSql("(sysutcdatetime())");
+            entity.Property(e => e.Username)
+                .IsRequired()
+                .HasMaxLength(50);
         });
 
         OnModelCreatingPartial(modelBuilder);

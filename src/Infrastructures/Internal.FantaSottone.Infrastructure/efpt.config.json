@@ -30,6 +30,10 @@
       {
          "Name": "[dbo].[RuleEntity]",
          "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[UserEntity]",
+         "ObjectType": 0
       }
    ],
    "UiHint": null,

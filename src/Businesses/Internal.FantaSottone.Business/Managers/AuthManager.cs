@@ -1,6 +1,8 @@
 namespace Internal.FantaSottone.Business.Managers;
 
+using Internal.FantaSottone.Domain.Dtos;
 using Internal.FantaSottone.Domain.Managers;
+using Internal.FantaSottone.Domain.Models;
 using Internal.FantaSottone.Domain.Repositories;
 using Internal.FantaSottone.Domain.Results;
 using Microsoft.Extensions.Configuration;
@@ -8,23 +10,27 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 internal sealed class AuthManager : IAuthManager
 {
     private readonly IPlayerRepository _playerRepository;
     private readonly IGameRepository _gameRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthManager> _logger;
 
     public AuthManager(
         IPlayerRepository playerRepository,
         IGameRepository gameRepository,
+        IUserRepository userRepository,
         IConfiguration configuration,
         ILogger<AuthManager> logger)
     {
         _playerRepository = playerRepository;
         _gameRepository = gameRepository;
+        _userRepository = userRepository;
         _configuration = configuration;
         _logger = logger;
     }
@@ -45,7 +51,7 @@ internal sealed class AuthManager : IAuthManager
             }
 
             var player = playerResult.Value!;
-            if(player.GameId is null)
+            if (player.GameId is null)
             {
                 _logger.LogWarning("Player {PlayerId} ({Username}) has no associated game", player.Id, username);
                 return AppResult<LoginResult>.Unauthorized("Player has no associated game");
@@ -110,5 +116,85 @@ internal sealed class AuthManager : IAuthManager
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public async Task<AppResult<User>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Username))
+            return AppResult<User>.BadRequest("Username is required");
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+            return AppResult<User>.BadRequest("Password is required");
+
+        if (string.IsNullOrWhiteSpace(request.Email))
+            return AppResult<User>.BadRequest("Email is required");
+
+        if (request.Password.Length < 6)
+            return AppResult<User>.BadRequest("Password must be at least 6 characters long");
+
+        var existingUser = await _userRepository.GetByUsernameAsync(request.Username, cancellationToken);
+        if (existingUser.IsSuccess)
+            return AppResult<User>.Conflict("Username already exists");
+
+        var user = new User
+        {
+            Username = request.Username,
+            Email = request.Email,
+            PasswordHash = HashPassword(request.Password),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        return await _userRepository.AddAsync(user, cancellationToken);
+    }
+
+    public async Task<AppResult<LoginResponse>> LoginUserAsync(LoginRequest request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Username))
+            return AppResult<LoginResponse>.BadRequest("Username is required");
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+            return AppResult<LoginResponse>.BadRequest("Password is required");
+
+        var userResult = await _userRepository.GetByUsernameAsync(request.Username, cancellationToken);
+        if (userResult.IsFailure)
+            return AppResult<LoginResponse>.Unauthorized("Invalid username or password");
+
+        var user = userResult.Value!;
+
+        if (!ValidatePassword(request.Password, user.PasswordHash))
+            return AppResult<LoginResponse>.Unauthorized("Invalid username or password");
+
+        var token = GenerateUserToken(user);
+
+        var response = new LoginResponse
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            Token = token
+        };
+
+        return AppResult<LoginResponse>.Created(response);
+    }
+
+    public bool ValidatePassword(string password, string passwordHash)
+    {
+        var hashedInput = HashPassword(password);
+        return hashedInput == passwordHash;
+    }
+
+    public string HashPassword(string password)
+    {
+        using var sha256 = SHA256.Create();
+        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(hashedBytes);
+    }
+
+    private string GenerateUserToken(User user)
+    {
+        var tokenData = $"{user.Id}:{user.Username}:{DateTime.UtcNow:O}";
+        var tokenBytes = Encoding.UTF8.GetBytes(tokenData);
+        return Convert.ToBase64String(tokenBytes);
     }
 }

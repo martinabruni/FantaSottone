@@ -80,11 +80,7 @@ internal sealed class PlayerService : IPlayerService
     {
         try
         {
-            var playerResult = await _playerRepository.GetByIdAsync(id, cancellationToken);
-            if (playerResult.IsFailure)
-                return AppResult.NotFound(playerResult.Errors.First().Message);
-
-            return await _playerRepository.DeleteAsync(playerResult.Value!, cancellationToken);
+            return await _playerRepository.DeleteAsync(id, cancellationToken);
         }
         catch (Exception ex)
         {

@@ -11,10 +11,6 @@ public partial class PlayerEntity
 
     public int? GameId { get; set; }
 
-    public string Username { get; set; }
-
-    public string AccessCode { get; set; }
-
     public bool IsCreator { get; set; }
 
     public int CurrentScore { get; set; }
@@ -23,6 +19,8 @@ public partial class PlayerEntity
 
     public DateTime UpdatedAt { get; set; }
 
+    public int UserId { get; set; }
+
     public virtual GameEntity Game { get; set; }
 
     public virtual ICollection<GameEntity> GameEntityCreatorPlayer { get; set; } = new List<GameEntity>();
@@ -30,4 +28,6 @@ public partial class PlayerEntity
     public virtual ICollection<GameEntity> GameEntityWinnerPlayer { get; set; } = new List<GameEntity>();
 
     public virtual ICollection<RuleAssignmentEntity> RuleAssignmentEntity { get; set; } = new List<RuleAssignmentEntity>();
+
+    public virtual UserEntity User { get; set; }
 }

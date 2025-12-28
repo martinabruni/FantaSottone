@@ -1,6 +1,7 @@
 namespace Internal.FantaSottone.Api.Controllers;
 
 using Internal.FantaSottone.Api.DTOs;
+using Internal.FantaSottone.Domain.Dtos;
 using Internal.FantaSottone.Domain.Managers;
 using Internal.FantaSottone.Domain.Models;
 using Internal.FantaSottone.Domain.Services;
@@ -13,7 +14,6 @@ using System.Security.Claims;
 public sealed class GamesController : ControllerBase
 {
     private readonly IGameManager _gameManager;
-    private readonly IGameService _gameService;
     private readonly IPlayerService _playerService;
     private readonly IRuleService _ruleService;
     private readonly IRuleAssignmentService _ruleAssignmentService;
@@ -21,14 +21,12 @@ public sealed class GamesController : ControllerBase
 
     public GamesController(
         IGameManager gameManager,
-        IGameService gameService,
         IPlayerService playerService,
         IRuleService ruleService,
         IRuleAssignmentService ruleAssignmentService,
         ILogger<GamesController> logger)
     {
         _gameManager = gameManager;
-        _gameService = gameService;
         _playerService = playerService;
         _ruleService = ruleService;
         _ruleAssignmentService = ruleAssignmentService;
@@ -88,7 +86,7 @@ public sealed class GamesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetLeaderboard(int gameId, CancellationToken cancellationToken)
     {
-        var result = await _gameService.GetLeaderboardAsync(gameId, cancellationToken);
+        var result = await _gameManager.GetLeaderboardAsync(gameId, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -281,13 +279,13 @@ public sealed class GamesController : ControllerBase
         var player = playerResult.Value!;
 
         // Check if game should end
-        var autoEndResult = await _gameService.TryAutoEndGameAsync(gameId, cancellationToken);
+        var autoEndResult = await _gameManager.TryAutoEndGameAsync(gameId, cancellationToken);
         var game = autoEndResult.IsSuccess ? autoEndResult.Value! : null;
 
         // Get current game status if auto-end didn't happen
         if (game == null)
         {
-            var gameResult = await _gameService.GetByIdAsync(gameId, cancellationToken);
+            var gameResult = await _gameManager.GetByIdAsync(gameId, cancellationToken);
             game = gameResult.Value;
         }
 
@@ -324,7 +322,7 @@ public sealed class GamesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetStatus(int gameId, CancellationToken cancellationToken)
     {
-        var gameResult = await _gameService.GetByIdAsync(gameId, cancellationToken);
+        var gameResult = await _gameManager.GetByIdAsync(gameId, cancellationToken);
 
         if (gameResult.IsFailure)
         {
@@ -426,7 +424,7 @@ public sealed class GamesController : ControllerBase
     {
         var creatorPlayerId = GetAuthenticatedPlayerId();
 
-        var result = await _gameService.EndGameAsync(gameId, creatorPlayerId, cancellationToken);
+        var result = await _gameManager.EndGameAsync(gameId, creatorPlayerId, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -449,7 +447,7 @@ public sealed class GamesController : ControllerBase
         var winner = winnerResult.Value!;
 
         // Get leaderboard
-        var leaderboardResult = await _gameService.GetLeaderboardAsync(gameId, cancellationToken);
+        var leaderboardResult = await _gameManager.GetLeaderboardAsync(gameId, cancellationToken);
         var leaderboard = leaderboardResult.IsSuccess
             ? leaderboardResult.Value!.Select(p => new LeaderboardPlayerDto
             {
@@ -526,6 +524,111 @@ public sealed class GamesController : ControllerBase
         };
 
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Invites a registered user to join a game (creator only)
+    /// </summary>
+    [HttpPost("{gameId}/invite")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> InvitePlayer(int gameId, [FromBody] InvitePlayerRequest request, CancellationToken cancellationToken)
+    {
+        // TODO: Replace with actual authenticated user ID from JWT token
+        if (!Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) ||
+            !int.TryParse(userIdHeader, out var requestingUserId))
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "User not authenticated",
+                Detail = "X-User-Id header is required"
+            });
+        }
+
+        var result = await _gameManager.InvitePlayerAsync(gameId, request.UserId, requestingUserId, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return StatusCode((int)result.StatusCode, new ProblemDetails
+            {
+                Status = (int)result.StatusCode,
+                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to invite player",
+                Detail = string.Join("; ", result.Errors.Select(e => e.Message))
+            });
+        }
+
+        return Ok(new { message = "Player invited successfully", playerId = result.Value!.Id });
+    }
+
+    /// <summary>
+    /// Joins a game (sets it as active for the current session)
+    /// </summary>
+    [HttpPost("{gameId}/join")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> JoinGame(int gameId, CancellationToken cancellationToken)
+    {
+        // TODO: Replace with actual authenticated user ID from JWT token
+        if (!Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) ||
+            !int.TryParse(userIdHeader, out var userId))
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "User not authenticated",
+                Detail = "X-User-Id header is required"
+            });
+        }
+
+        var result = await _gameManager.JoinGameAsync(gameId, userId, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return StatusCode((int)result.StatusCode, new ProblemDetails
+            {
+                Status = (int)result.StatusCode,
+                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to join game",
+                Detail = string.Join("; ", result.Errors.Select(e => e.Message))
+            });
+        }
+
+        var player = result.Value!;
+
+        // Return game context for the player
+        var gameResult = await _gameManager.GetByIdAsync(gameId, cancellationToken);
+        if (gameResult.IsFailure)
+        {
+            return StatusCode((int)gameResult.StatusCode, new ProblemDetails
+            {
+                Status = (int)gameResult.StatusCode,
+                Title = "Game not found after join"
+            });
+        }
+
+        var game = gameResult.Value!;
+
+        return Ok(new
+        {
+            message = "Joined game successfully",
+            game = new
+            {
+                id = game.Id,
+                name = game.Name,
+                status = (int)game.Status,
+                initialScore = game.InitialScore
+            },
+            player = new
+            {
+                id = player.Id,
+                currentScore = player.CurrentScore,
+                isCreator = player.IsCreator
+            }
+        });
     }
 
     private int GetAuthenticatedPlayerId()

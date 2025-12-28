@@ -15,12 +15,13 @@ internal sealed class PlayerRepository : BaseRepository<Player, PlayerEntity, in
     {
     }
 
-    public async Task<AppResult<Player>> GetByCredentialsAsync(string username, string accessCode, CancellationToken cancellationToken = default)
+    public async Task<AppResult<Player>> GetByCredentialsAsync(string username, string passwordHash, CancellationToken cancellationToken = default)
     {
         try
         {
             var entity = await _context.PlayerEntity
-                .FirstOrDefaultAsync(p => p.Username == username && p.AccessCode == accessCode, cancellationToken);
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.User.Username == username && p.User.PasswordHash == passwordHash, cancellationToken);
 
             if (entity == null)
             {
@@ -91,6 +92,45 @@ internal sealed class PlayerRepository : BaseRepository<Player, PlayerEntity, in
         {
             _logger.LogError(ex, "Error counting players with low score for game {GameId}", gameId);
             return AppResult<int>.InternalServerError($"Error counting players: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<Player>> GetByGameAndUserAsync(int gameId, int userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var entity = await _context.PlayerEntity
+                .FirstOrDefaultAsync(p => p.GameId == gameId && p.UserId == userId, cancellationToken);
+
+            if (entity == null)
+            {
+                _logger.LogWarning("Player not found for game {GameId} and user {UserId}", gameId, userId);
+                return AppResult<Player>.NotFound($"Player not found in this game");
+            }
+
+            var domainEntity = entity.Adapt<Player>();
+            return AppResult<Player>.Success(domainEntity);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving player for game {GameId} and user {UserId}", gameId, userId);
+            return AppResult<Player>.InternalServerError($"Error retrieving player: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<bool>> ExistsAsync(int gameId, int userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var exists = await _context.PlayerEntity
+                .AnyAsync(p => p.GameId == gameId && p.UserId == userId, cancellationToken);
+
+            return AppResult<bool>.Success(exists);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking if player exists for game {GameId} and user {UserId}", gameId, userId);
+            return AppResult<bool>.InternalServerError($"Error checking player existence: {ex.Message}");
         }
     }
 }

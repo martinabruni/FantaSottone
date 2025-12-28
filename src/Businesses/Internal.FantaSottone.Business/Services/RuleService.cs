@@ -66,11 +66,7 @@ internal sealed class RuleService : IRuleService
 
     public async Task<AppResult> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
-        var ruleResult = await _ruleRepository.GetByIdAsync(id, cancellationToken);
-        if (ruleResult.IsFailure)
-            return AppResult.NotFound($"Rule with ID {id} not found");
-
-        var deleteResult = await _ruleRepository.DeleteAsync(ruleResult.Value!, cancellationToken);
+        var deleteResult = await _ruleRepository.DeleteAsync(id, cancellationToken);
         if (deleteResult.IsFailure)
             return AppResult.InternalServerError($"Failed to delete rule: {deleteResult.Errors.FirstOrDefault()?.Message}");
 
@@ -194,7 +190,7 @@ internal sealed class RuleService : IRuleService
         if (isAssignedResult.IsSuccess && isAssignedResult.Value)
             return AppResult.Conflict("Cannot delete a rule that has already been assigned", "RULE_ALREADY_ASSIGNED");
 
-        var deleteResult = await _ruleRepository.DeleteAsync(rule, cancellationToken);
+        var deleteResult = await _ruleRepository.DeleteAsync(ruleId, cancellationToken);
         if (deleteResult.IsFailure)
             return AppResult.InternalServerError($"Failed to delete rule: {deleteResult.Errors.FirstOrDefault()?.Message}");
 

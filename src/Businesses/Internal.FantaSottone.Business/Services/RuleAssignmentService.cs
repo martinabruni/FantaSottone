@@ -93,11 +93,7 @@ internal sealed class RuleAssignmentService : IRuleAssignmentService
     {
         try
         {
-            var assignmentResult = await _ruleAssignmentRepository.GetByIdAsync(id, cancellationToken);
-            if (assignmentResult.IsFailure)
-                return AppResult.NotFound(assignmentResult.Errors.First().Message);
-
-            return await _ruleAssignmentRepository.DeleteAsync(assignmentResult.Value!, cancellationToken);
+            return await _ruleAssignmentRepository.DeleteAsync(id, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -111,13 +107,13 @@ internal sealed class RuleAssignmentService : IRuleAssignmentService
     /// Uses transaction to ensure player score update and assignment creation are atomic
     /// </summary>
     public async Task<AppResult<RuleAssignment>> AssignRuleAsync(
-        int ruleId, 
-        int gameId, 
-        int playerId, 
+        int ruleId,
+        int gameId,
+        int playerId,
         CancellationToken cancellationToken = default)
     {
         using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
-        
+
         try
         {
             // 1. Verify game exists
@@ -194,18 +190,18 @@ internal sealed class RuleAssignmentService : IRuleAssignmentService
             };
 
             var assignResult = await _ruleAssignmentRepository.AddAsync(assignment, cancellationToken);
-            
+
             if (assignResult.IsFailure)
             {
                 await transaction.RollbackAsync(cancellationToken);
-                
+
                 // If it's a conflict (409), this is the "La prima che" in action
                 if (assignResult.StatusCode == AppStatusCode.Conflict)
                 {
                     _logger.LogWarning("Race condition detected: Rule {RuleId} was assigned by another player simultaneously", ruleId);
                     return assignResult; // Return the conflict as-is
                 }
-                
+
                 _logger.LogError("Failed to create assignment for rule {RuleId}", ruleId);
                 return assignResult;
             }

@@ -6,21 +6,31 @@ using Internal.FantaSottone.Domain.Managers;
 using Internal.FantaSottone.Domain.Models;
 using Internal.FantaSottone.Domain.Repositories;
 using Internal.FantaSottone.Domain.Results;
+using Microsoft.Extensions.Logging;
 
 internal sealed class GameManager : IGameManager
 {
     private readonly IGameRepository _gameRepository;
     private readonly IPlayerRepository _playerRepository;
     private readonly IRuleRepository _ruleRepository;
+    private readonly IRuleAssignmentRepository _ruleAssignmentRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly ILogger<GameManager> _logger;
 
     public GameManager(
         IGameRepository gameRepository,
         IPlayerRepository playerRepository,
-        IRuleRepository ruleRepository)
+        IRuleRepository ruleRepository,
+        IRuleAssignmentRepository ruleAssignmentRepository,
+        IUserRepository userRepository,
+        ILogger<GameManager> logger)
     {
         _gameRepository = gameRepository;
         _playerRepository = playerRepository;
         _ruleRepository = ruleRepository;
+        _ruleAssignmentRepository = ruleAssignmentRepository;
+        _userRepository = userRepository;
+        _logger = logger;
     }
 
     public async Task<AppResult<StartGameResult>> StartGameAsync(
@@ -148,6 +158,296 @@ internal sealed class GameManager : IGameManager
         catch (Exception ex)
         {
             return AppResult<StartGameResult>.InternalServerError($"Failed to create game: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<Game>> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _gameRepository.GetByIdAsync(id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error getting game {GameId}", id);
+            return AppResult<Game>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<IEnumerable<Game>>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _gameRepository.GetAllAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error getting all games");
+            return AppResult<IEnumerable<Game>>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<Game>> CreateAsync(Game entity, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _gameRepository.AddAsync(entity, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error creating game");
+            return AppResult<Game>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<Game>> UpdateAsync(Game entity, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var existingResult = await _gameRepository.GetByIdAsync(entity.Id, cancellationToken);
+            if (existingResult.IsFailure)
+                return existingResult;
+
+            return await _gameRepository.UpdateAsync(entity, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error updating game {GameId}", entity.Id);
+            return AppResult<Game>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _gameRepository.DeleteAsync(id, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error deleting game {GameId}", id);
+            return AppResult.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<IEnumerable<Player>>> GetLeaderboardAsync(int gameId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var gameResult = await _gameRepository.GetByIdAsync(gameId, cancellationToken);
+            if (gameResult.IsFailure)
+                return AppResult<IEnumerable<Player>>.NotFound($"Game with ID {gameId} not found");
+
+            return await _playerRepository.GetLeaderboardAsync(gameId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error getting leaderboard for game {GameId}", gameId);
+            return AppResult<IEnumerable<Player>>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<Game>> EndGameAsync(int gameId, int creatorPlayerId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var gameResult = await _gameRepository.GetByIdAsync(gameId, cancellationToken);
+            if (gameResult.IsFailure)
+                return gameResult;
+
+            var game = gameResult.Value!;
+
+            if (game.Status == GameStatus.Ended)
+            {
+                _logger.LogWarning("Attempt to end already ended game {GameId}", gameId);
+                return AppResult<Game>.BadRequest("Game has already ended");
+            }
+
+            if (game.CreatorPlayerId != creatorPlayerId)
+            {
+                _logger.LogWarning("Player {PlayerId} attempted to end game but is not creator", creatorPlayerId);
+                return AppResult<Game>.Forbidden("Only the game creator can end the game");
+            }
+
+            var playersResult = await _playerRepository.GetLeaderboardAsync(gameId, cancellationToken);
+            if (playersResult.IsFailure)
+                return AppResult<Game>.InternalServerError("Failed to retrieve players for winner determination");
+
+            var playersList = playersResult.Value!.ToList();
+
+            if (playersList.Count == 0)
+            {
+                _logger.LogWarning("Attempt to end game {GameId} with no players", gameId);
+                return AppResult<Game>.BadRequest("Cannot end game with no players");
+            }
+
+            var winner = playersList.First();
+
+            game.Status = GameStatus.Ended;
+            game.WinnerPlayerId = winner.Id;
+            game.UpdatedAt = DateTime.UtcNow;
+
+            _logger.LogInformation("Game {GameId} ended, winner is player {PlayerId}", gameId, winner.Id);
+            return await _gameRepository.UpdateAsync(game, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error ending game {GameId}", gameId);
+            return AppResult<Game>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<bool> ShouldEndGameAsync(int gameId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var totalRulesResult = await _ruleRepository.CountByGameIdAsync(gameId, cancellationToken);
+            var assignedRulesResult = await _ruleAssignmentRepository.CountByGameIdAsync(gameId, cancellationToken);
+
+            if (totalRulesResult.IsSuccess && assignedRulesResult.IsSuccess)
+            {
+                var totalRules = totalRulesResult.Value!;
+                var assignedRules = assignedRulesResult.Value!;
+
+                if (totalRules > 0 && totalRules == assignedRules)
+                {
+                    _logger.LogInformation("Game {GameId} should end: all {Count} rules assigned", gameId, totalRules);
+                    return true;
+                }
+            }
+
+            var playersWithLowScoreResult = await _playerRepository.CountPlayersWithScoreLessThanOrEqualToZeroAsync(gameId, cancellationToken);
+
+            if (playersWithLowScoreResult.IsSuccess && playersWithLowScoreResult.Value! >= 3)
+            {
+                _logger.LogInformation("Game {GameId} should end: {Count} players with score <= 0", gameId, playersWithLowScoreResult.Value);
+                return true;
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking if game {GameId} should end", gameId);
+            return false;
+        }
+    }
+
+    public async Task<AppResult<Game>> TryAutoEndGameAsync(int gameId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var shouldEnd = await ShouldEndGameAsync(gameId, cancellationToken);
+            if (!shouldEnd)
+                return AppResult<Game>.BadRequest("Game end conditions not met");
+
+            var gameResult = await _gameRepository.GetByIdAsync(gameId, cancellationToken);
+            if (gameResult.IsFailure)
+                return gameResult;
+
+            var game = gameResult.Value!;
+
+            if (game.Status == GameStatus.Ended)
+            {
+                _logger.LogInformation("Game {GameId} already ended", gameId);
+                return AppResult<Game>.Success(game);
+            }
+
+            var playersResult = await _playerRepository.GetLeaderboardAsync(gameId, cancellationToken);
+            if (playersResult.IsFailure)
+                return AppResult<Game>.InternalServerError("Failed to retrieve players for winner determination");
+
+            var playersList = playersResult.Value!.ToList();
+
+            if (playersList.Count == 0)
+            {
+                _logger.LogWarning("Cannot auto-end game {GameId} with no players", gameId);
+                return AppResult<Game>.BadRequest("Cannot end game with no players");
+            }
+
+            var winner = playersList.First();
+
+            game.Status = GameStatus.Ended;
+            game.WinnerPlayerId = winner.Id;
+            game.UpdatedAt = DateTime.UtcNow;
+
+            _logger.LogInformation("Game {GameId} auto-ended, winner is player {PlayerId}", gameId, winner.Id);
+            return await _gameRepository.UpdateAsync(game, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error auto-ending game {GameId}", gameId);
+            return AppResult<Game>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<Player>> InvitePlayerAsync(int gameId, int userId, int requestingUserId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var gameResult = await _gameRepository.GetByIdAsync(gameId, cancellationToken);
+            if (gameResult.IsFailure)
+                return AppResult<Player>.NotFound($"Game with ID {gameId} not found");
+
+            var game = gameResult.Value!;
+
+            var isCreatorResult = await _gameRepository.IsUserCreatorAsync(gameId, requestingUserId, cancellationToken);
+            if (isCreatorResult.IsFailure || !isCreatorResult.Value!)
+            {
+                _logger.LogWarning("User {UserId} attempted to invite to game {GameId} but is not creator", requestingUserId, gameId);
+                return AppResult<Player>.Forbidden("Only the game creator can invite players");
+            }
+
+            var userResult = await _userRepository.GetByIdAsync(userId, cancellationToken);
+            if (userResult.IsFailure)
+                return AppResult<Player>.NotFound($"User with ID {userId} not found");
+
+            var existsResult = await _playerRepository.ExistsAsync(gameId, userId, cancellationToken);
+            if (existsResult.IsSuccess && existsResult.Value!)
+                return AppResult<Player>.Conflict("User is already a player in this game");
+
+            var player = new Player
+            {
+                GameId = gameId,
+                UserId = userId,
+                IsCreator = false,
+                CurrentScore = game.InitialScore,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _logger.LogInformation("User {UserId} invited to game {GameId} by creator {CreatorId}", userId, gameId, requestingUserId);
+            return await _playerRepository.AddAsync(player, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error inviting user {UserId} to game {GameId}", userId, gameId);
+            return AppResult<Player>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<Player>> JoinGameAsync(int gameId, int userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var gameResult = await _gameRepository.GetByIdAsync(gameId, cancellationToken);
+            if (gameResult.IsFailure)
+                return AppResult<Player>.NotFound($"Game with ID {gameId} not found");
+
+            var playerResult = await _playerRepository.GetByGameAndUserAsync(gameId, userId, cancellationToken);
+            if (playerResult.IsFailure)
+            {
+                _logger.LogWarning("User {UserId} attempted to join game {GameId} but is not a player", userId, gameId);
+                return AppResult<Player>.Forbidden("You are not a player in this game");
+            }
+
+            _logger.LogInformation("User {UserId} joined game {GameId}", userId, gameId);
+            return playerResult;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error joining game {GameId} for user {UserId}", gameId, userId);
+            return AppResult<Player>.InternalServerError($"Service error: {ex.Message}");
         }
     }
 }

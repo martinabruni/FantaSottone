@@ -1,6 +1,6 @@
 namespace Internal.FantaSottone.Api.Controllers;
 
-using Internal.FantaSottone.Api.DTOs;
+using Internal.FantaSottone.Domain.Dtos;
 using Internal.FantaSottone.Domain.Managers;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,14 +18,53 @@ public sealed class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Authenticates a player with username and access code
+    /// Registers a new user in the system
+    /// </summary>
+    [HttpPost("register")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
+    {
+        var registerResult = await _authManager.RegisterAsync(request, cancellationToken);
+
+        if (registerResult.IsFailure)
+        {
+            return StatusCode((int)registerResult.StatusCode, new ProblemDetails
+            {
+                Status = (int)registerResult.StatusCode,
+                Title = registerResult.Errors.FirstOrDefault()?.Message ?? "Registration failed",
+                Detail = string.Join("; ", registerResult.Errors.Select(e => e.Message))
+            });
+        }
+
+        // Auto-login after registration
+        var loginRequest = new LoginRequest
+        {
+            Username = request.Username,
+            Password = request.Password
+        };
+
+        var loginResult = await _authManager.LoginUserAsync(loginRequest, cancellationToken);
+
+        if (loginResult.IsFailure)
+        {
+            _logger.LogWarning("User registered but auto-login failed for {Username}", request.Username);
+            return StatusCode(StatusCodes.Status201Created, new { message = "User registered successfully. Please login." });
+        }
+
+        return StatusCode(StatusCodes.Status201Created, loginResult.Value);
+    }
+
+    /// <summary>
+    /// Authenticates a user with username and password
     /// </summary>
     [HttpPost("login")]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        var result = await _authManager.LoginAsync(request.Username, request.AccessCode, cancellationToken);
+        var result = await _authManager.LoginUserAsync(request, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -37,32 +76,6 @@ public sealed class AuthController : ControllerBase
             });
         }
 
-        var loginResult = result.Value!;
-        var game = (Internal.FantaSottone.Domain.Models.Game)loginResult.Game;
-        var player = (Internal.FantaSottone.Domain.Models.Player)loginResult.Player;
-
-        var response = new LoginResponse
-        {
-            Token = loginResult.Token,
-            Game = new GameDto
-            {
-                Id = game.Id,
-                Name = game.Name,
-                InitialScore = game.InitialScore,
-                Status = (int)game.Status,
-                CreatorPlayerId = game.CreatorPlayerId,
-                WinnerPlayerId = game.WinnerPlayerId
-            },
-            Player = new PlayerDto
-            {
-                Id = player.Id,
-                GameId = player.GameId,
-                Username = player.Username,
-                IsCreator = player.IsCreator,
-                CurrentScore = player.CurrentScore
-            }
-        };
-
-        return Ok(response);
+        return Ok(result.Value);
     }
 }
