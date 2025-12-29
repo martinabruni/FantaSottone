@@ -17,26 +17,7 @@ internal sealed class PlayerRepository : BaseRepository<Player, PlayerEntity, in
 
     public async Task<AppResult<Player>> GetByCredentialsAsync(string username, string passwordHash, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var entity = await _context.PlayerEntity
-                .Include(p => p.User)
-                .FirstOrDefaultAsync(p => p.User.Username == username && p.User.PasswordHash == passwordHash, cancellationToken);
-
-            if (entity == null)
-            {
-                _logger.LogWarning("Player with username {Username} not found or invalid access code", username);
-                return AppResult<Player>.Unauthorized("Invalid username or access code");
-            }
-
-            var domainEntity = entity.Adapt<Player>();
-            return AppResult<Player>.Success(domainEntity);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving player by credentials for username {Username}", username);
-            return AppResult<Player>.InternalServerError($"Error retrieving player: {ex.Message}");
-        }
+        throw new NotImplementedException();
     }
 
     public async Task<AppResult<IEnumerable<Player>>> GetLeaderboardAsync(int gameId, CancellationToken cancellationToken = default)

@@ -19,7 +19,11 @@ public partial class PlayerEntity
 
     public DateTime UpdatedAt { get; set; }
 
-    public int UserId { get; set; }
+    public int? UserId { get; set; }
+
+    public string Username { get; set; }
+
+    public string AccessCode { get; set; }
 
     public virtual GameEntity Game { get; set; }
 

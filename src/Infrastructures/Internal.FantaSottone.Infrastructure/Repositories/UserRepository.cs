@@ -23,11 +23,10 @@ internal sealed class UserRepository : BaseRepository<User, UserEntity, int>, IU
         try
         {
             var users = await _context.UserEntity
-                .Where(u => u.Username.Contains(searchTerm))
+                .Where(u => u.Email.Contains(searchTerm))
                 .Select(u => new UserSearchDto
                 {
                     UserId = u.Id,
-                    Username = u.Username,
                     Email = u.Email
                 })
                 .Take(20) // Limit results
@@ -55,7 +54,7 @@ internal sealed class UserRepository : BaseRepository<User, UserEntity, int>, IU
                 {
                     GameId = p.Game.Id,
                     GameName = p.Game.Name,
-                    CreatorUsername = p.Game.CreatorPlayer.User.Username,
+                    CreatorEmail = p.Game.CreatorPlayer.User.Email,
                     Status = p.Game.Status,
                     StatusText = GetStatusText(p.Game.Status),
                     CurrentScore = p.CurrentScore,
