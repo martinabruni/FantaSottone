@@ -13,4 +13,5 @@ public sealed class GameListItemDto
     public int CurrentScore { get; set; }
     public bool IsCreator { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

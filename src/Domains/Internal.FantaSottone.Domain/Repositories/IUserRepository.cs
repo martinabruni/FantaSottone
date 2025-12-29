@@ -10,6 +10,14 @@ using Internal.FantaSottone.Domain.Results;
 public interface IUserRepository : IRepository<User, int>
 {
     /// <summary>
+    /// Retrieves a user by email address
+    /// </summary>
+    /// <param name="email">The user's email address</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>AppResult containing the user if found</returns>
+    Task<AppResult<User>> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Searches for users by username pattern
     /// </summary>
     /// <param name="searchTerm">Search term to filter usernames</param>
