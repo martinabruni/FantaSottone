@@ -7,6 +7,22 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(
+            "http://localhost:5173",  // Vite dev server
+            "http://localhost:5174",
+            "http://localhost:3000"   // Alternative port
+        )
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials();
+    });
+});
+
 // Configuration
 var configuration = builder.Configuration;
 var connectionString = configuration["SqlConnectionString"]
@@ -117,9 +133,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseCors();
-
+// Use CORS
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
