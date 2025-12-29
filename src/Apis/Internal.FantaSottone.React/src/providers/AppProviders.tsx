@@ -1,3 +1,4 @@
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider } from "./auth/AuthProvider";
 import { GamesProvider } from "./games/GamesProvider";
 import { LeaderboardProvider } from "./leaderboard/LeaderboardProvider";
@@ -5,15 +6,25 @@ import { RulesProvider } from "./rules/RulesProvider";
 import { AssignmentsProvider } from "./assignments/AssignmentsProvider";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+
+  if (!googleClientId) {
+    console.warn(
+      "VITE_GOOGLE_CLIENT_ID not configured. Google OAuth will not work."
+    );
+  }
+
   return (
-    <AuthProvider>
-      <GamesProvider>
-        <LeaderboardProvider>
-          <RulesProvider>
-            <AssignmentsProvider>{children}</AssignmentsProvider>
-          </RulesProvider>
-        </LeaderboardProvider>
-      </GamesProvider>
-    </AuthProvider>
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <AuthProvider>
+        <GamesProvider>
+          <LeaderboardProvider>
+            <RulesProvider>
+              <AssignmentsProvider>{children}</AssignmentsProvider>
+            </RulesProvider>
+          </LeaderboardProvider>
+        </GamesProvider>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }

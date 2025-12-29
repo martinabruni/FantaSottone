@@ -9,16 +9,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/providers/auth/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
+import { GoogleLoginButton } from "./GoogleLoginButton";
 
 export function LoginForm() {
   const [username, setUsername] = useState("");
   const [accessCode, setAccessCode] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -57,7 +59,38 @@ export function LoginForm() {
         variant: "error",
         title: "Accesso non riuscito",
         description:
-          error instanceof Error ? error.message : "Si e verificato un errore",
+          error instanceof Error
+            ? error.message
+            : "Si è verificato un errore imprevisto",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async (idToken: string) => {
+    setLoading(true);
+    try {
+      const response = await loginWithGoogle(idToken);
+      
+      toast({
+        variant: "success",
+        title: response.isFirstLogin ? "Account creato!" : "Accesso riuscito",
+        description: response.isFirstLogin
+          ? `Benvenuto! Account creato per ${response.email}`
+          : `Bentornato, ${response.email}!`,
+      });
+
+      // Redirect to home or games list
+      navigate("/games");
+    } catch (error) {
+      toast({
+        variant: "error",
+        title: "Errore durante il login con Google",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Si è verificato un errore imprevisto",
       });
     } finally {
       setLoading(false);
@@ -65,51 +98,62 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="w-full">
+    <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle className="text-xl sm:text-2xl">Entra in partita</CardTitle>
-        <CardDescription className="text-sm sm:text-base">
-          Inserisci le tue credenziali per entrare in una partita esistente
+        <CardTitle>Accedi</CardTitle>
+        <CardDescription>
+          Inserisci le tue credenziali per accedere al gioco
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/* Google Login Section */}
+        <div className="space-y-2">
+          <GoogleLoginButton
+            onSuccess={handleGoogleLogin}
+            onError={() => setLoading(false)}
+          />
+        </div>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <Separator />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">
+              Oppure continua con
+            </span>
+          </div>
+        </div>
+
+        {/* Traditional Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Nome utente</Label>
+            <Label htmlFor="username">Username</Label>
             <Input
               id="username"
               type="text"
-              placeholder="Inserisci il nome utente"
+              placeholder="Il tuo username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={loading}
-              className="text-base"
             />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="accessCode">Codice di accesso</Label>
             <Input
               id="accessCode"
               type="password"
-              placeholder="Inserisci il codice di accesso"
+              placeholder="Il tuo codice"
               value={accessCode}
               onChange={(e) => setAccessCode(e.target.value)}
               disabled={loading}
-              className="text-base"
             />
           </div>
-          <Button 
-            type="submit" 
-            className="w-full h-12 text-base sm:text-lg" 
-            disabled={loading}
-          >
+
+          <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Accesso in corso..." : "Accedi"}
           </Button>
-          <div className="text-xs sm:text-sm text-muted-foreground space-y-1 pt-2">
-            <p className="font-semibold">Credenziali di test:</p>
-            <p>Nome utente: test1, Codice: code1 (Creatore)</p>
-            <p>Nome utente: test2, Codice: code2 (Giocatore)</p>
-          </div>
         </form>
       </CardContent>
     </Card>
