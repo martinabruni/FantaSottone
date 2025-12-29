@@ -17,7 +17,26 @@ internal sealed class UserRepository : BaseRepository<User, UserEntity, int>, IU
     public UserRepository(FantaSottoneContext context, ILogger logger) : base(context, logger)
     {
     }
-    
+
+    public async Task<AppResult<User>> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var entity = await _context.UserEntity
+                .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+
+            if (entity == null)
+                return AppResult<User>.NotFound($"User with email '{email}' not found");
+
+            return AppResult<User>.Success(entity.Adapt<User>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving user by email {Email}", email);
+            return AppResult<User>.InternalServerError($"Database error: {ex.Message}");
+        }
+    }
+
     public async Task<AppResult<IEnumerable<UserSearchDto>>> SearchUsersAsync(string searchTerm, CancellationToken cancellationToken = default)
     {
         try
@@ -54,14 +73,13 @@ internal sealed class UserRepository : BaseRepository<User, UserEntity, int>, IU
                 {
                     GameId = p.Game.Id,
                     GameName = p.Game.Name,
-                    CreatorEmail = p.Game.CreatorPlayer.User.Email,
                     Status = p.Game.Status,
-                    StatusText = GetStatusText(p.Game.Status),
+                    CreatorEmail = p.Game.CreatorPlayer!.User.Email,
                     CurrentScore = p.CurrentScore,
                     IsCreator = p.IsCreator,
-                    UpdatedAt = p.Game.UpdatedAt
+                    CreatedAt = p.Game.CreatedAt
                 })
-                .OrderByDescending(g => g.UpdatedAt)
+                .OrderByDescending(g => g.CreatedAt)
                 .ToListAsync(cancellationToken);
 
             return AppResult<IEnumerable<GameListItemDto>>.Success(games);
@@ -71,16 +89,5 @@ internal sealed class UserRepository : BaseRepository<User, UserEntity, int>, IU
             _logger.LogError(ex, "Error retrieving games for user {UserId}", userId);
             return AppResult<IEnumerable<GameListItemDto>>.InternalServerError($"Database error: {ex.Message}");
         }
-    }
-
-    private static string GetStatusText(byte status)
-    {
-        return status switch
-        {
-            1 => "Pending",
-            2 => "InProgress",
-            3 => "Ended",
-            _ => "Unknown"
-        };
     }
 }

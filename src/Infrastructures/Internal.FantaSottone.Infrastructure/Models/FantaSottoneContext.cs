@@ -135,10 +135,14 @@ public partial class FantaSottoneContext : DbContext
 
         modelBuilder.Entity<UserEntity>(entity =>
         {
+            entity.HasIndex(e => e.Email, "UX_UserEntity_Email").IsUnique();
+
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(3)
                 .HasDefaultValueSql("sysutcdatetime()");
-            entity.Property(e => e.Email).HasMaxLength(100);
+            entity.Property(e => e.Email)
+                .IsRequired()
+                .HasMaxLength(255);
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(3)
                 .HasDefaultValueSql("sysutcdatetime()");
