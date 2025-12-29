@@ -65,6 +65,7 @@
   <ItemGroup>
     <None Include="Snapshots\Internal.FantaSottone.Sql_20251229_11-58-01.dacpac" />
     <None Include="Snapshots\Internal.FantaSottone.Sql_20251229_12-02-59.dacpac" />
+    <None Include="Snapshots\Internal.FantaSottone.Sql_20251229_12-18-27.dacpac" />
   </ItemGroup>
   <ItemGroup>
     <Build Include="dbo\Tables\GameEntity.sql" />
