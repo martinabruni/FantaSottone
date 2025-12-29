@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 /// </summary>
 internal sealed class UserRepository : BaseRepository<User, UserEntity, int>, IUserRepository
 {
-    public UserRepository(FantaSottoneContext context, ILogger logger) : base(context, logger)
+    public UserRepository(FantaSottoneContext context, ILogger<UserRepository> logger) : base(context, logger)
     {
     }
 
