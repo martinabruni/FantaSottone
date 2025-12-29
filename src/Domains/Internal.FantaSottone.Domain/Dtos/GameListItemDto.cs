@@ -7,7 +7,7 @@ public sealed class GameListItemDto
 {
     public int GameId { get; set; }
     public string GameName { get; set; } = string.Empty;
-    public string CreatorUsername { get; set; } = string.Empty;
+    public string CreatorEmail { get; set; } = string.Empty;
     public int Status { get; set; }
     public string StatusText { get; set; } = string.Empty;
     public int CurrentScore { get; set; }
