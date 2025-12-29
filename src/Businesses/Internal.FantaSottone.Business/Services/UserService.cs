@@ -44,11 +44,6 @@ internal sealed class UserService : IUserService
         return await _userRepository.DeleteAsync(id, cancellationToken);
     }
 
-    public async Task<AppResult<User>> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
-    {
-        return await _userRepository.GetByUsernameAsync(username, cancellationToken);
-    }
-
     public async Task<AppResult<IEnumerable<UserSearchDto>>> SearchUsersAsync(string searchTerm, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(searchTerm))

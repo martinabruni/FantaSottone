@@ -17,26 +17,7 @@ internal sealed class UserRepository : BaseRepository<User, UserEntity, int>, IU
     public UserRepository(FantaSottoneContext context, ILogger logger) : base(context, logger)
     {
     }
-
-    public async Task<AppResult<User>> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var entity = await _context.UserEntity
-                .FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
-
-            if (entity == null)
-                return AppResult<User>.NotFound($"User with username '{username}' not found");
-
-            return AppResult<User>.Success(entity.Adapt<User>());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving user by username {Username}", username);
-            return AppResult<User>.InternalServerError($"Database error: {ex.Message}");
-        }
-    }
-
+    
     public async Task<AppResult<IEnumerable<UserSearchDto>>> SearchUsersAsync(string searchTerm, CancellationToken cancellationToken = default)
     {
         try
