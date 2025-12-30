@@ -12,14 +12,16 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/useToast";
 import { Plus, Users, Trophy } from "lucide-react";
 import { GameInvitationDto } from "@/types/user-types";
-import { createTransport } from "@/lib/http/transportFactory";
+import { useUsers } from "@/providers/users/UsersProvider"; // ADD THIS IMPORT
 
 export function GameListPage() {
   const [games, setGames] = useState<GameInvitationDto[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const transport = createTransport();
+  
+  // FIXED: Use useUsers() hook instead of creating transport directly
+  const { getUserGames } = useUsers();
 
   useEffect(() => {
     loadGames();
@@ -28,9 +30,8 @@ export function GameListPage() {
   const loadGames = async () => {
     try {
       setLoading(true);
-      const response = await transport.get<{ games: GameInvitationDto[] }>(
-        "/api/Users/games"
-      );
+      // FIXED: Now this will include the bearer token in headers!
+      const response = await getUserGames();
       setGames(response.games);
     } catch (error) {
       toast({
@@ -88,14 +89,18 @@ export function GameListPage() {
 
       {games.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <Trophy className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nessuna partita</h3>
-            <p className="text-muted-foreground mb-4">
-              Non sei ancora stato invitato a nessuna partita
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Trophy className="h-16 w-16 text-muted-foreground mb-4" />
+            <p className="text-xl font-semibold mb-2">
+              Nessuna partita disponibile
+            </p>
+            <p className="text-muted-foreground mb-4 text-center">
+              Non sei ancora stato invitato a nessuna partita. Crea la tua prima
+              partita per iniziare!
             </p>
             <Button onClick={() => navigate("/games/create")}>
-              Crea la tua prima partita
+              <Plus className="mr-2 h-4 w-4" />
+              Crea partita
             </Button>
           </CardContent>
         </Card>
@@ -108,8 +113,8 @@ export function GameListPage() {
               onClick={() => navigate(`/game/${game.gameId}`)}
             >
               <CardHeader>
-                <div className="flex justify-between items-start mb-2">
-                  <CardTitle className="text-xl">{game.gameName}</CardTitle>
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg">{game.gameName}</CardTitle>
                   {getStatusBadge(game.status)}
                 </div>
                 <CardDescription>
@@ -118,12 +123,13 @@ export function GameListPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center text-muted-foreground">
-                    <Users className="mr-2 h-4 w-4" />
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
                     <span>{game.playerCount} giocatori</span>
                   </div>
-                  <div className="font-semibold">
-                    Punteggio iniziale: {game.initialScore}
+                  <div className="flex items-center gap-2">
+                    <Trophy className="h-4 w-4 text-muted-foreground" />
+                    <span>Punteggio: {game.initialScore}</span>
                   </div>
                 </div>
               </CardContent>

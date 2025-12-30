@@ -13,8 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/useToast";
 import { X, Plus, ArrowLeft } from "lucide-react";
-import { CreateGameRequest, CreateGameResponse } from "@/types/user-types";
-import { createTransport } from "@/lib/http/transportFactory";
+import { useGames } from "@/providers/games/GamesProvider"; // ADD THIS IMPORT
 
 export function CreateGamePage() {
   const [gameName, setGameName] = useState("");
@@ -24,7 +23,9 @@ export function CreateGamePage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const transport = createTransport();
+  
+  // FIXED: Use useGames() hook instead of creating transport directly
+  const { createGame } = useGames();
 
   const isValidEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -32,9 +33,14 @@ export function CreateGamePage() {
   };
 
   const handleAddEmail = () => {
-    const trimmedEmail = emailInput.trim().toLowerCase();
+    const trimmedEmail = emailInput.trim();
 
     if (!trimmedEmail) {
+      toast({
+        variant: "error",
+        title: "Email vuota",
+        description: "Inserisci un indirizzo email valido",
+      });
       return;
     }
 
@@ -42,7 +48,7 @@ export function CreateGamePage() {
       toast({
         variant: "error",
         title: "Email non valida",
-        description: "Inserisci un indirizzo email valido",
+        description: "Inserisci un indirizzo email nel formato corretto",
       });
       return;
     }
@@ -50,8 +56,8 @@ export function CreateGamePage() {
     if (invitedEmails.includes(trimmedEmail)) {
       toast({
         variant: "error",
-        title: "Email già aggiunta",
-        description: "Questa email è già stata aggiunta alla lista",
+        title: "Email duplicata",
+        description: "Questa email è già stata aggiunta",
       });
       return;
     }
@@ -64,20 +70,13 @@ export function CreateGamePage() {
     setInvitedEmails(invitedEmails.filter((e) => e !== email));
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleAddEmail();
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleCreateGame = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!gameName.trim()) {
       toast({
         variant: "error",
-        title: "Nome partita richiesto",
+        title: "Nome mancante",
         description: "Inserisci un nome per la partita",
       });
       return;
@@ -88,41 +87,36 @@ export function CreateGamePage() {
       toast({
         variant: "error",
         title: "Punteggio non valido",
-        description: "Inserisci un punteggio iniziale valido",
+        description: "Il punteggio iniziale deve essere un numero positivo",
       });
       return;
     }
 
-    setLoading(true);
-
     try {
-      const request: CreateGameRequest = {
-        name: gameName.trim(),
+      setLoading(true);
+      
+      // FIXED: Now this will include the bearer token in headers!
+      const response = await createGame({
+        name: gameName,
         initialScore: score,
         invitedEmails: invitedEmails,
-      };
-
-      const response = await transport.post<
-        CreateGameRequest,
-        CreateGameResponse
-      >("/api/Games/create", request);
-
-      let successMessage = `Partita "${response.gameName}" creata con successo!`;
-      if (response.invitedEmails.length > 0) {
-        successMessage += ` ${response.invitedEmails.length} giocatori invitati.`;
-      }
-      if (response.invalidEmails.length > 0) {
-        successMessage += ` ${response.invalidEmails.length} email non trovate.`;
-      }
+      });
 
       toast({
         variant: "success",
         title: "Partita creata!",
-        description: successMessage,
+        description: `La partita "${response.game.name}" è stata creata con successo`,
       });
 
-      // Reindirizza alla partita appena creata
-      navigate(`/game/${response.gameId}`);
+      if (response.invalidEmails.length > 0) {
+        toast({
+          variant: "warning",
+          title: "Alcuni inviti non sono andati a buon fine",
+          description: `Le seguenti email non sono state trovate: ${response.invalidEmails.join(", ")}`,
+        });
+      }
+
+      navigate("/games");
     } catch (error) {
       toast({
         variant: "error",
@@ -141,8 +135,8 @@ export function CreateGamePage() {
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <Button
         variant="ghost"
-        onClick={() => navigate("/games")}
         className="mb-4"
+        onClick={() => navigate("/games")}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Torna alle partite
@@ -150,19 +144,19 @@ export function CreateGamePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Crea nuova partita</CardTitle>
+          <CardTitle>Crea una nuova partita</CardTitle>
           <CardDescription>
-            Crea una partita e invita altri giocatori tramite email
+            Configura la partita e invita altri giocatori via email
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleCreateGame} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="gameName">Nome partita *</Label>
+              <Label htmlFor="gameName">Nome partita</Label>
               <Input
                 id="gameName"
                 type="text"
-                placeholder="Es: Partita del weekend"
+                placeholder="La mia partita"
                 value={gameName}
                 onChange={(e) => setGameName(e.target.value)}
                 disabled={loading}
@@ -170,78 +164,65 @@ export function CreateGamePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="initialScore">Punteggio iniziale *</Label>
+              <Label htmlFor="initialScore">Punteggio iniziale</Label>
               <Input
                 id="initialScore"
                 type="number"
-                min="1"
                 placeholder="100"
                 value={initialScore}
                 onChange={(e) => setInitialScore(e.target.value)}
                 disabled={loading}
+                min="1"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="emailInput">Invita giocatori (opzionale)</Label>
+              <Label>Invita giocatori (opzionale)</Label>
               <div className="flex gap-2">
                 <Input
-                  id="emailInput"
                   type="email"
                   placeholder="email@esempio.com"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddEmail();
+                    }
+                  }}
                   disabled={loading}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleAddEmail}
-                  disabled={loading || !emailInput.trim()}
+                  disabled={loading}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Premi Invio o clicca + per aggiungere un'email
-              </p>
-            </div>
-
-            {invitedEmails.length > 0 && (
-              <div className="space-y-2">
-                <Label>Email invitate ({invitedEmails.length})</Label>
-                <div className="flex flex-wrap gap-2">
+              {invitedEmails.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
                   {invitedEmails.map((email) => (
-                    <Badge key={email} variant="secondary" className="text-sm">
+                    <Badge key={email} variant="secondary" className="gap-1">
                       {email}
                       <button
                         type="button"
                         onClick={() => handleRemoveEmail(email)}
-                        className="ml-2 hover:text-destructive"
                         disabled={loading}
+                        className="ml-1 hover:text-destructive"
                       >
                         <X className="h-3 w-3" />
                       </button>
                     </Badge>
                   ))}
                 </div>
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-4">
-              <Button type="submit" disabled={loading} className="flex-1">
-                {loading ? "Creazione..." : "Crea partita"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate("/games")}
-                disabled={loading}
-              >
-                Annulla
-              </Button>
+              )}
             </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Creazione in corso..." : "Crea partita"}
+            </Button>
           </form>
         </CardContent>
       </Card>
