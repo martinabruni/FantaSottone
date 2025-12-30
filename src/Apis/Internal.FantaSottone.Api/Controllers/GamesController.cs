@@ -34,6 +34,58 @@ public sealed class GamesController : ControllerBase
     }
 
     /// <summary>
+    /// Creates a new game and invites players by email
+    /// </summary>
+    [HttpPost("create")]
+    [ProducesResponseType(typeof(CreateGameResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CreateGame([FromBody] CreateGameRequest request, CancellationToken cancellationToken)
+    {
+        // TODO: Replace with actual authenticated user ID from JWT token
+        if (!Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) ||
+            !int.TryParse(userIdHeader, out var userId))
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "User not authenticated",
+                Detail = "X-User-Id header is required"
+            });
+        }
+
+        var result = await _gameManager.CreateGameWithEmailInvitesAsync(
+            request.Name,
+            request.InitialScore,
+            userId,
+            request.InvitedEmails,
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return StatusCode((int)result.StatusCode, new ProblemDetails
+            {
+                Status = (int)result.StatusCode,
+                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to create game",
+                Detail = string.Join("; ", result.Errors.Select(e => e.Message))
+            });
+        }
+
+        var (game, creatorPlayer, invitedEmails, invalidEmails) = result.Value!;
+
+        var response = new CreateGameResponse
+        {
+            GameId = game.Id,
+            GameName = game.Name,
+            CreatorPlayerId = creatorPlayer.Id,
+            InvitedEmails = invitedEmails,
+            InvalidEmails = invalidEmails
+        };
+
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Creates a new game with players and rules
     /// </summary>
     [HttpPost("start")]
