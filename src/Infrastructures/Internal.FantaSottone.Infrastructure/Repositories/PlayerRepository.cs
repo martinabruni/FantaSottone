@@ -15,19 +15,16 @@ internal sealed class PlayerRepository : BaseRepository<Player, PlayerEntity, in
     {
     }
 
-    public async Task<AppResult<Player>> GetByCredentialsAsync(string username, string passwordHash, CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException();
-    }
-
     public async Task<AppResult<IEnumerable<Player>>> GetLeaderboardAsync(int gameId, CancellationToken cancellationToken = default)
     {
         try
         {
             var entities = await _context.PlayerEntity
+                .Include(p => p.User) // Include User for email
                 .Where(p => p.GameId == gameId)
                 .OrderByDescending(p => p.CurrentScore)
                 .ThenBy(p => p.Id) // Tie-break by Id ASC
+                .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
             var domainEntities = entities.Adapt<IEnumerable<Player>>();
@@ -46,10 +43,13 @@ internal sealed class PlayerRepository : BaseRepository<Player, PlayerEntity, in
         try
         {
             var entities = await _context.PlayerEntity
+                .Include(p => p.User)
                 .Where(p => p.GameId == gameId)
+                .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
             var domainEntities = entities.Adapt<IEnumerable<Player>>();
+            _logger.LogInformation("Retrieved {Count} players for game {GameId}", entities.Count, gameId);
             return AppResult<IEnumerable<Player>>.Success(domainEntities);
         }
         catch (Exception ex)
@@ -67,11 +67,12 @@ internal sealed class PlayerRepository : BaseRepository<Player, PlayerEntity, in
                 .Where(p => p.GameId == gameId && p.CurrentScore <= 0)
                 .CountAsync(cancellationToken);
 
+            _logger.LogInformation("Counted {Count} players with score <= 0 in game {GameId}", count, gameId);
             return AppResult<int>.Success(count);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error counting players with low score for game {GameId}", gameId);
+            _logger.LogError(ex, "Error counting players with score <= 0 in game {GameId}", gameId);
             return AppResult<int>.InternalServerError($"Error counting players: {ex.Message}");
         }
     }
@@ -81,6 +82,8 @@ internal sealed class PlayerRepository : BaseRepository<Player, PlayerEntity, in
         try
         {
             var entity = await _context.PlayerEntity
+                .Include(p => p.User)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.GameId == gameId && p.UserId == userId, cancellationToken);
 
             if (entity == null)
