@@ -23,6 +23,8 @@ public partial class FantaSottoneContext : DbContext
 
     public virtual DbSet<UserEntity> UserEntity { get; set; }
 
+    public virtual DbSet<vw_PlayerGameContext> vw_PlayerGameContext { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<GameEntity>(entity =>
@@ -146,6 +148,20 @@ public partial class FantaSottoneContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(3)
                 .HasDefaultValueSql("sysutcdatetime()");
+        });
+
+        modelBuilder.Entity<vw_PlayerGameContext>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("vw_PlayerGameContext");
+
+            entity.Property(e => e.Email)
+                .IsRequired()
+                .HasMaxLength(255);
+            entity.Property(e => e.GameName)
+                .IsRequired()
+                .HasMaxLength(100);
         });
 
         OnModelCreatingPartial(modelBuilder);

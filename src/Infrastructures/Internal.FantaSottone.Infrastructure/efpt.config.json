@@ -34,6 +34,10 @@
       {
          "Name": "[dbo].[UserEntity]",
          "ObjectType": 0
+      },
+      {
+         "Name": "[dbo].[vw_PlayerGameContext]",
+         "ObjectType": 3
       }
    ],
    "UiHint": null,
