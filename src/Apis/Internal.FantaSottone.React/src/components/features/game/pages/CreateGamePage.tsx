@@ -13,7 +13,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/useToast";
 import { X, Plus, ArrowLeft } from "lucide-react";
-import { useGames } from "@/providers/games/GamesProvider"; // ADD THIS IMPORT
+import { useGames } from "@/providers/games/GamesProvider";
+import { useGame } from "@/providers/games/GameProvider";
+import { useAuth } from "@/providers/auth/AuthProvider";
 
 export function CreateGamePage() {
   const [gameName, setGameName] = useState("");
@@ -23,9 +25,9 @@ export function CreateGamePage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  
-  // FIXED: Use useGames() hook instead of creating transport directly
   const { createGame } = useGames();
+  const { joinGame } = useGame();
+  const { session } = useAuth();
 
   const isValidEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,6 +51,19 @@ export function CreateGamePage() {
         variant: "error",
         title: "Email non valida",
         description: "Inserisci un indirizzo email nel formato corretto",
+      });
+      return;
+    }
+
+    // Don't allow inviting yourself
+    if (
+      session?.email &&
+      trimmedEmail.toLowerCase() === session.email.toLowerCase()
+    ) {
+      toast({
+        variant: "error",
+        title: "Email non valida",
+        description: "Non puoi invitare te stesso",
       });
       return;
     }
@@ -94,30 +109,37 @@ export function CreateGamePage() {
 
     try {
       setLoading(true);
-      
-      // FIXED: Now this will include the bearer token in headers!
+
+      // ✅ FIXED: Use correct response structure
       const response = await createGame({
         name: gameName,
         initialScore: score,
         invitedEmails: invitedEmails,
       });
 
+      // ✅ FIXED: Join the game automatically to get player role
+      await joinGame(response.gameId);
+
       toast({
         variant: "success",
         title: "Partita creata!",
-        description: `La partita "${response.game.name}" è stata creata con successo`,
+        description: `La partita "${response.gameName}" è stata creata con successo`,
       });
 
       if (response.invalidEmails.length > 0) {
         toast({
           variant: "warning",
           title: "Alcuni inviti non sono andati a buon fine",
-          description: `Le seguenti email non sono state trovate: ${response.invalidEmails.join(", ")}`,
+          description: `Le seguenti email non sono state trovate: ${response.invalidEmails.join(
+            ", "
+          )}`,
         });
       }
 
-      navigate("/games");
+      // Navigate to the game page
+      navigate(`/game/${response.gameId}`);
     } catch (error) {
+      console.error("Error creating game:", error);
       toast({
         variant: "error",
         title: "Errore nella creazione",

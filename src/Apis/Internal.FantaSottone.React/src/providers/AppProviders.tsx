@@ -2,6 +2,7 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider } from "./auth/AuthProvider";
 import { UsersProvider } from "./users/UsersProvider";
 import { GamesProvider } from "./games/GamesProvider";
+import { GameProvider } from "./games/GameProvider";
 import { LeaderboardProvider } from "./leaderboard/LeaderboardProvider";
 import { RulesProvider } from "./rules/RulesProvider";
 import { AssignmentsProvider } from "./assignments/AssignmentsProvider";
@@ -20,11 +21,13 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       <AuthProvider>
         <UsersProvider>
           <GamesProvider>
-            <LeaderboardProvider>
-              <RulesProvider>
-                <AssignmentsProvider>{children}</AssignmentsProvider>
-              </RulesProvider>
-            </LeaderboardProvider>
+            <GameProvider>
+              <LeaderboardProvider>
+                <RulesProvider>
+                  <AssignmentsProvider>{children}</AssignmentsProvider>
+                </RulesProvider>
+              </LeaderboardProvider>
+            </GameProvider>
           </GamesProvider>
         </UsersProvider>
       </AuthProvider>

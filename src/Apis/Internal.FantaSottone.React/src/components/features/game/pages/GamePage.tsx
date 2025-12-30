@@ -1,25 +1,60 @@
 import { useParams, Navigate } from "react-router-dom";
 import { useAuth } from "@/providers/auth/AuthProvider";
+import { useGame } from "@/providers/games/GameProvider";
 import { useGames } from "@/providers/games/GamesProvider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LeaderboardTab } from "../components/LeaderboardTab";
 import { RulesTab } from "../components/RulesTab";
 import { EndGameDialog } from "../components/EndGameDialog";
 import { ActionButton } from "@/components/common/ActionButton";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/useToast";
 import { usePolling } from "@/hooks/usePolling";
 import { useLeaderboard } from "@/providers/leaderboard/LeaderboardProvider";
 import { GameStatus } from "@/types/entities";
+import { LoadingState } from "@/components/common/LoadingState";
 
 export function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const { session, isAuthenticated } = useAuth();
+  const { currentPlayer, joinGame } = useGame();
   const { endGame } = useGames();
   const { getLeaderboard } = useLeaderboard();
   const { toast } = useToast();
   const [endGameDialogOpen, setEndGameDialogOpen] = useState(false);
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
+  const [joiningGame, setJoiningGame] = useState(false);
+
+  // Auto-join game if not already joined
+  useEffect(() => {
+    const autoJoin = async () => {
+      if (!gameId || !isAuthenticated) return;
+
+      const gameIdNum = parseInt(gameId);
+
+      // Check if we're already joined to this game
+      if (currentPlayer?.gameId === gameIdNum) {
+        return;
+      }
+
+      // Join the game
+      setJoiningGame(true);
+      try {
+        await joinGame(gameIdNum);
+      } catch (error) {
+        console.error("Failed to join game:", error);
+        toast({
+          variant: "error",
+          title: "Errore",
+          description: "Impossibile accedere alla partita",
+        });
+      } finally {
+        setJoiningGame(false);
+      }
+    };
+
+    autoJoin();
+  }, [gameId, isAuthenticated, currentPlayer?.gameId, joinGame, toast]);
 
   // Poll leaderboard to get game status
   const pollingInterval = parseInt(
@@ -30,13 +65,11 @@ export function GamePage() {
     async () => {
       if (!gameId) return null;
       const leaderboard = await getLeaderboard(parseInt(gameId));
-      // In a real implementation, you'd get the status from a dedicated endpoint
-      // For now, we'll track it in state after ending
       return leaderboard;
     },
     {
       interval: gameStatus === GameStatus.Ended ? 10000 : pollingInterval,
-      enabled: !!gameId && isAuthenticated,
+      enabled: !!gameId && isAuthenticated && !joiningGame,
     }
   );
 
@@ -48,6 +81,11 @@ export function GamePage() {
     return <Navigate to="/" replace />;
   }
 
+  // Show loading while joining
+  if (joiningGame || !currentPlayer) {
+    return <LoadingState message="Accesso alla partita in corso..." />;
+  }
+
   const handleEndGame = async () => {
     try {
       const response = await endGame(parseInt(gameId));
@@ -55,7 +93,6 @@ export function GamePage() {
       toast({
         variant: "success",
         title: "Partita terminata",
-        // ✅ MODIFICATO: mostra email invece di username
         description: `Vincitore: ${response.winner.email} con ${response.winner.currentScore} punti!`,
       });
     } catch (error) {
@@ -70,7 +107,7 @@ export function GamePage() {
     }
   };
 
-  const isCreator = session.role === "creator";
+  const isCreator = currentPlayer.isCreator;
   const canEndGame = isCreator && gameStatus !== GameStatus.Ended;
 
   return (

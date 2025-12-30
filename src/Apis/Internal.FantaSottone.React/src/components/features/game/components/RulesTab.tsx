@@ -2,6 +2,7 @@ import { useParams } from "react-router-dom";
 import { useRules } from "@/providers/rules/RulesProvider";
 import { usePolling } from "@/hooks/usePolling";
 import { useAuth } from "@/providers/auth/AuthProvider";
+import { useGame } from "@/providers/games/GameProvider";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -24,6 +25,7 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
   const { getRules, assignRule, updateRule, createRule, deleteRule } =
     useRules();
   const { session } = useAuth();
+  const { currentPlayer } = useGame();
   const { toast } = useToast();
   const [assigning, setAssigning] = useState<number | null>(null);
   const [editingRule, setEditingRule] = useState<{
@@ -182,13 +184,14 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
     return <LoadingState message="Caricamento regole..." />;
   if (error) return <ErrorState message={error.message} onRetry={refetch} />;
 
-  const isCreator = session?.role === "creator";
+  // ✅ FIXED: Use currentPlayer.isCreator instead of session.role
+  const isCreator = currentPlayer?.isCreator ?? false;
   const isGameEnded = gameStatus === GameStatus.Ended;
 
   return (
     <>
       <div className="space-y-4">
-        {/* ✅ MODIFICATO: Rimosso il check !isGameEnded - il creatore può creare regole anche a gioco iniziato */}
+        {/* ✅ Creator can create rules even during game */}
         {isCreator && (
           <div className="flex justify-end">
             <ActionButton
@@ -211,9 +214,9 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
           rules.map(({ rule, assignment }) => {
             const isAssigned = !!assignment;
             const isAssignedToMe =
-              assignment?.assignedToPlayerId === session?.playerId;
+              assignment?.assignedToPlayerId === currentPlayer?.playerId;
             const canAssign = !isAssigned && !assigning;
-            // ✅ Le regole non assegnate possono essere modificate/eliminate anche a gioco iniziato
+            // ✅ Unassigned rules can be edited/deleted even during game
             const canEdit = isCreator && !isAssigned && !isGameEnded;
             const canDelete = isCreator && !isAssigned && !isGameEnded;
 
@@ -245,7 +248,6 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
                   {isAssigned ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      {/* ✅ MODIFICATO: mostra email invece di username */}
                       <span>Assegnata a: {assignment.assignedAt}</span>
                     </div>
                   ) : (
