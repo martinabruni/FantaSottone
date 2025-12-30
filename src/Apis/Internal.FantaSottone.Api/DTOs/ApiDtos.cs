@@ -57,7 +57,7 @@ public sealed class PlayerCredentialDto
 public sealed class LeaderboardPlayerDto
 {
     public int Id { get; set; }
-    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;  // Cambiato da Username a Email
     public int CurrentScore { get; set; }
     public bool IsCreator { get; set; }
 }
@@ -67,6 +67,7 @@ public sealed class RuleWithAssignmentDto
     public RuleDto Rule { get; set; } = null!;
     public RuleAssignmentInfoDto? Assignment { get; set; }
 }
+
 
 public sealed class RuleDto
 {
@@ -80,7 +81,7 @@ public sealed class RuleAssignmentInfoDto
 {
     public int RuleAssignmentId { get; set; }
     public int AssignedToPlayerId { get; set; }
-    public string AssignedToUsername { get; set; } = string.Empty;
+    public string AssignedToEmail { get; set; } = string.Empty;  // Cambiato da AssignedToUsername a AssignedToEmail
     public string AssignedAt { get; set; } = string.Empty;
 }
 
@@ -133,7 +134,7 @@ public sealed class GameInfoDto
 public sealed class WinnerDto
 {
     public int Id { get; set; }
-    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;  // Cambiato da Username a Email
     public int CurrentScore { get; set; }
 }
 
@@ -205,8 +206,26 @@ public sealed class GameDto
 public sealed class PlayerDto
 {
     public int Id { get; set; }
-    public int? GameId { get; set; }
-    public string Username { get; set; } = string.Empty;
+    public int GameId { get; set; }
+    public string Email { get; set; } = string.Empty;  // Cambiato da Username a Email
     public bool IsCreator { get; set; }
     public int CurrentScore { get; set; }
+}
+
+public sealed class EndGameDto
+{
+    public GameDto Game { get; set; } = null!;
+    public WinnerDto Winner { get; set; } = null!;
+    public List<LeaderboardPlayerDto> Leaderboard { get; set; } = [];
+}
+
+public sealed class AssignmentHistoryDto
+{
+    public int Id { get; set; }
+    public int RuleId { get; set; }
+    public string RuleName { get; set; } = string.Empty;
+    public int AssignedToPlayerId { get; set; }
+    public string AssignedToEmail { get; set; } = string.Empty;  // Cambiato da AssignedToUsername a AssignedToEmail
+    public int ScoreDeltaApplied { get; set; }
+    public string AssignedAt { get; set; } = string.Empty;
 }

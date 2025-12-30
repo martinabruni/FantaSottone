@@ -1,4 +1,4 @@
-namespace Internal.FantaSottone.Api.Controllers;
+﻿namespace Internal.FantaSottone.Api.Controllers;
 
 using Internal.FantaSottone.Api.DTOs;
 using Internal.FantaSottone.Domain.Dtos;
@@ -252,10 +252,11 @@ public sealed class GamesController : ControllerBase
             });
         }
 
+        // MODIFICATO: Usare p.User?.Email invece di p.Username
         var response = result.Value!.Select(p => new LeaderboardPlayerDto
         {
             Id = p.Id,
-            Username = p.Username,
+            Email = p.User?.Email ?? "N/A",  // ✅ CAMBIATO DA Username A Email
             CurrentScore = p.CurrentScore,
             IsCreator = p.IsCreator
         }).ToList();
@@ -291,12 +292,17 @@ public sealed class GamesController : ControllerBase
             if (assignment != null)
             {
                 var playerResult = await _playerService.GetByIdAsync(assignment.AssignedToPlayerId, cancellationToken);
-                var playerUsername = playerResult.IsSuccess ? playerResult.Value!.Username : "Unknown";
+
+                // MODIFICATO: Usare playerResult.Value!.User?.Email invece di playerResult.Value!.Username
+                var playerEmail = playerResult.IsSuccess
+                    ? playerResult.Value!.User?.Email ?? "N/A"  // ✅ CAMBIATO DA Username A Email
+                    : "Unknown";
 
                 assignmentInfo = new RuleAssignmentInfoDto
                 {
+                    RuleAssignmentId = assignment.Id,
                     AssignedToPlayerId = assignment.AssignedToPlayerId,
-                    AssignedToUsername = playerUsername,
+                    AssignedToEmail = playerEmail,  // ✅ CAMBIATO DA AssignedToUsername A AssignedToEmail
                     AssignedAt = assignment.AssignedAt.ToString("O")
                 };
             }
@@ -452,39 +458,12 @@ public sealed class GamesController : ControllerBase
     }
 
     /// <summary>
-    /// Deletes a rule (creator only, pre-assignment)
-    /// </summary>
-    [HttpDelete("{gameId}/rules/{ruleId}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> DeleteRule(int gameId, int ruleId, CancellationToken cancellationToken)
-    {
-        var creatorPlayerId = GetAuthenticatedPlayerId();
-
-        var result = await _ruleService.DeleteRuleAsync(ruleId, gameId, creatorPlayerId, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            return StatusCode((int)result.StatusCode, new ProblemDetails
-            {
-                Status = (int)result.StatusCode,
-                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to delete rule",
-                Type = result.Errors.FirstOrDefault()?.Code
-            });
-        }
-
-        return NoContent();
-    }
-
-    /// <summary>
-    /// Gets the audit trail of all rule assignments for a game
+    /// Gets assignment history for a game
     /// </summary>
     [HttpGet("{gameId}/assignments")]
-    [ProducesResponseType(typeof(List<AssignmentAuditDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(List<AssignmentHistoryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetAssignments(int gameId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAssignmentHistory(int gameId, CancellationToken cancellationToken)
     {
         var result = await _ruleAssignmentService.GetByGameIdAsync(gameId, cancellationToken);
 
@@ -493,27 +472,30 @@ public sealed class GamesController : ControllerBase
             return StatusCode((int)result.StatusCode, new ProblemDetails
             {
                 Status = (int)result.StatusCode,
-                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to get assignments"
+                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to get assignment history"
             });
         }
 
-        var response = new List<AssignmentAuditDto>();
+        // Assume che result.Value sia IEnumerable<RuleAssignment>
+        var response = new List<AssignmentHistoryDto>();
 
         foreach (var assignment in result.Value!)
         {
             var ruleResult = await _ruleService.GetByIdAsync(assignment.RuleId, cancellationToken);
-            var ruleName = ruleResult.IsSuccess ? ruleResult.Value!.Name : "Unknown";
-
             var playerResult = await _playerService.GetByIdAsync(assignment.AssignedToPlayerId, cancellationToken);
-            var playerUsername = playerResult.IsSuccess ? playerResult.Value!.Username : "Unknown";
 
-            response.Add(new AssignmentAuditDto
+            // MODIFICATO: Usare playerResult.Value!.User?.Email invece di playerResult.Value!.Username
+            var playerEmail = playerResult.IsSuccess
+                ? playerResult.Value!.User?.Email ?? "N/A"  // ✅ CAMBIATO DA Username A Email
+                : "Unknown";
+
+            response.Add(new AssignmentHistoryDto
             {
                 Id = assignment.Id,
                 RuleId = assignment.RuleId,
-                RuleName = ruleName,
+                RuleName = ruleResult.IsSuccess ? ruleResult.Value!.Name : "Unknown",
                 AssignedToPlayerId = assignment.AssignedToPlayerId,
-                AssignedToUsername = playerUsername,
+                AssignedToEmail = playerEmail,  // ✅ CAMBIATO DA AssignedToUsername A AssignedToEmail
                 ScoreDeltaApplied = assignment.ScoreDeltaApplied,
                 AssignedAt = assignment.AssignedAt.ToString("O")
             });
@@ -522,19 +504,29 @@ public sealed class GamesController : ControllerBase
         return Ok(response);
     }
 
+
     /// <summary>
-    /// Ends a game manually (creator only)
+    /// Ends the game
     /// </summary>
     [HttpPost("{gameId}/end")]
-    [ProducesResponseType(typeof(EndGameResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndGameDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> EndGame(int gameId, CancellationToken cancellationToken)
     {
-        var creatorPlayerId = GetAuthenticatedPlayerId();
+        var userId = GetAuthenticatedUserId();
+        if (userId == 0)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "User not authenticated",
+                Detail = "Invalid or missing user ID in token"
+            });
+        }
 
-        var result = await _gameManager.EndGameAsync(gameId, creatorPlayerId, cancellationToken);
+        var result = await _gameManager.EndGameAsync(gameId, userId, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -545,42 +537,32 @@ public sealed class GamesController : ControllerBase
             });
         }
 
-        var game = result.Value!;
+        var (game, winner, leaderboard) = result.Value!;
 
-        var winnerResult = await _playerService.GetByIdAsync(game.WinnerPlayerId!.Value, cancellationToken);
-        if (winnerResult.IsFailure)
+        var response = new EndGameDto
         {
-            return StatusCode(500, new ProblemDetails { Title = "Failed to retrieve winner" });
-        }
-
-        var winner = winnerResult.Value!;
-
-        var leaderboardResult = await _gameManager.GetLeaderboardAsync(gameId, cancellationToken);
-        var leaderboard = leaderboardResult.IsSuccess
-            ? leaderboardResult.Value!.Select(p => new LeaderboardPlayerDto
-            {
-                Id = p.Id,
-                Username = p.Username,
-                CurrentScore = p.CurrentScore,
-                IsCreator = p.IsCreator
-            }).ToList()
-            : [];
-
-        var response = new EndGameResponse
-        {
-            Game = new EndGameInfoDto
+            Game = new GameDto
             {
                 Id = game.Id,
+                Name = game.Name,
+                InitialScore = game.InitialScore,
                 Status = (int)game.Status,
-                WinnerPlayerId = game.WinnerPlayerId!.Value
+                CreatorPlayerId = game.CreatorPlayerId,
+                WinnerPlayerId = game.WinnerPlayerId
             },
             Winner = new WinnerDto
             {
                 Id = winner.Id,
-                Username = winner.Username,
+                Email = winner.User?.Email ?? "N/A",  // ✅ CAMBIATO DA Username A Email
                 CurrentScore = winner.CurrentScore
             },
-            Leaderboard = leaderboard
+            Leaderboard = leaderboard.Select(p => new LeaderboardPlayerDto
+            {
+                Id = p.Id,
+                Email = p.User?.Email ?? "N/A",  // ✅ CAMBIATO DA Username A Email
+                CurrentScore = p.CurrentScore,
+                IsCreator = p.IsCreator
+            }).ToList()
         };
 
         return Ok(response);

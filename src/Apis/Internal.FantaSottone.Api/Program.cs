@@ -46,10 +46,9 @@ builder.Services.AddBusinessServices();
 builder.Services.AddControllers();
 
 // JWT Authentication
-var jwtSettings = configuration.GetSection("Jwt");
-var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
-var issuer = jwtSettings["Issuer"] ?? "FantaSottone";
-var audience = jwtSettings["Audience"] ?? "FantaSottone";
+var secretKey = configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
+var issuer = configuration["Jwt:Issuer"] ?? "FantaSottone";
+var audience = configuration["Jwt:Audience"] ?? "FantaSottone";
 
 builder.Services.AddAuthentication(options =>
 {
