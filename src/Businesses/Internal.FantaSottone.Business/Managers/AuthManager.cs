@@ -15,23 +15,17 @@ using System.Text;
 
 internal sealed class AuthManager : IAuthManager
 {
-    private readonly IPlayerRepository _playerRepository;
-    private readonly IGameRepository _gameRepository;
     private readonly IUserRepository _userRepository;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthManager> _logger;
 
     public AuthManager(
-        IPlayerRepository playerRepository,
-        IGameRepository gameRepository,
         IUserRepository userRepository,
-        IConfiguration configuration,
+        IConfiguration _configuration,
         ILogger<AuthManager> logger)
     {
-        _playerRepository = playerRepository;
-        _gameRepository = gameRepository;
         _userRepository = userRepository;
-        _configuration = configuration;
+        this._configuration = _configuration;
         _logger = logger;
     }
 
@@ -74,26 +68,18 @@ internal sealed class AuthManager : IAuthManager
             if (string.IsNullOrEmpty(email))
             {
                 _logger.LogWarning("Google token did not contain email");
-                return AppResult<GoogleAuthResponse>.BadRequest("Email not found in Google token");
+                return AppResult<GoogleAuthResponse>.Unauthorized("Google token missing email");
             }
 
-            // Check if email is verified
-            if (!payload.EmailVerified)
-            {
-                _logger.LogWarning("Google account email not verified: {Email}", email);
-                return AppResult<GoogleAuthResponse>.Unauthorized("Please verify your Google account email");
-            }
-
-            // Check if user exists
-            var userResult = await _userRepository.GetByEmailAsync(email, cancellationToken);
-            bool isFirstLogin = userResult.IsFailure;
+            // Check if user exists, create if not
             User user;
+            bool isFirstLogin = false;
 
-            if (isFirstLogin)
+            var userResult = await _userRepository.GetByEmailAsync(email, cancellationToken);
+            if (userResult.IsFailure)
             {
-                // First login - create new user
-                _logger.LogInformation("First login for email {Email}, creating new user", email);
-
+                // New user - create account
+                isFirstLogin = true;
                 user = new User
                 {
                     Email = email,
@@ -138,114 +124,30 @@ internal sealed class AuthManager : IAuthManager
         }
     }
 
-    public async Task<AppResult<LoginResult>> LoginAsync(
-        string username,
-        string accessCode,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            // Find player by credentials
-            var playerResult = await _playerRepository.GetByCredentialsAsync(username, accessCode, cancellationToken);
-            if (playerResult.IsFailure)
-            {
-                _logger.LogWarning("Login failed for username {Username}", username);
-                return AppResult<LoginResult>.Unauthorized("Invalid username or access code");
-            }
-
-            var player = playerResult.Value!;
-            if (player.GameId is null)
-            {
-                _logger.LogWarning("Player {PlayerId} ({Username}) has no associated game", player.Id, username);
-                return AppResult<LoginResult>.Unauthorized("Player has no associated game");
-            }
-
-            // Get game
-            var gameResult = await _gameRepository.GetByIdAsync(player.GameId.Value, cancellationToken);
-            if (gameResult.IsFailure)
-            {
-                _logger.LogError("Game {GameId} not found for player {PlayerId}", player.GameId, player.Id);
-                return AppResult<LoginResult>.NotFound("Game not found");
-            }
-
-            var game = gameResult.Value!;
-
-            // Generate JWT token for player/game session
-            var token = GeneratePlayerJwtToken(player, game);
-
-            var result = new LoginResult
-            {
-                Token = token,
-                Game = game,
-                Player = player
-            };
-
-            _logger.LogInformation("Player {PlayerId} ({Username}) logged in to game {GameId}", player.Id, username, game.Id);
-            return AppResult<LoginResult>.Success(result);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during login for username {Username}", username);
-            return AppResult<LoginResult>.InternalServerError($"Login error: {ex.Message}");
-        }
-    }
-
     private string GenerateUserJwtToken(User user)
     {
         var jwtSettings = _configuration.GetSection("Jwt");
-        var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
-        var issuer = jwtSettings["Issuer"] ?? "FantaSottone";
-        var audience = jwtSettings["Audience"] ?? "FantaSottone";
-        var expiryMinutes = int.Parse(jwtSettings["ExpiryMinutes"] ?? "480"); // 8 hours default
+        var key = Encoding.UTF8.GetBytes(_configuration["Jwt:SecretKey"] ?? throw new InvalidOperationException("JWT Key not configured"));
+        var issuer = _configuration["Jwt:Issuer"];
+        var audience = _configuration["Jwt:Audience"];
 
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim("userId", user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim("userId", user.Id.ToString())
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var credentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
             issuer: issuer,
             audience: audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
-            signingCredentials: credentials);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-
-    private string GeneratePlayerJwtToken(Player player, Game game)
-    {
-        var jwtSettings = _configuration.GetSection("Jwt");
-        var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
-        var issuer = jwtSettings["Issuer"] ?? "FantaSottone";
-        var audience = jwtSettings["Audience"] ?? "FantaSottone";
-        var expiryMinutes = int.Parse(jwtSettings["ExpiryMinutes"] ?? "480"); // 8 hours default
-
-        var claims = new[]
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, player.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.UniqueName, player.Username),
-            new Claim("playerId", player.Id.ToString()),
-            new Claim("gameId", game.Id.ToString()),
-            new Claim("isCreator", player.IsCreator.ToString()),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var token = new JwtSecurityToken(
-            issuer: issuer,
-            audience: audience,
-            claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expiryMinutes),
-            signingCredentials: credentials);
+            expires: DateTime.UtcNow.AddHours(12),
+            signingCredentials: credentials
+        );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }

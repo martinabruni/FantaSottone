@@ -6,6 +6,7 @@ using Internal.FantaSottone.Domain.Managers;
 using Internal.FantaSottone.Domain.Models;
 using Internal.FantaSottone.Domain.Repositories;
 using Internal.FantaSottone.Domain.Results;
+using Mapster;
 using Microsoft.Extensions.Logging;
 
 internal sealed class GameManager : IGameManager
@@ -184,134 +185,6 @@ internal sealed class GameManager : IGameManager
         }
     }
 
-    public async Task<AppResult<StartGameResult>> StartGameAsync(
-        string name,
-        int initialScore,
-        List<(string Username, string AccessCode, bool IsCreator)> players,
-        List<(string Name, RuleType RuleType, int ScoreDelta)> rules,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            // Step 1: Validate input
-            var creatorData = players.FirstOrDefault(p => p.IsCreator);
-            if (creatorData == default)
-                return AppResult<StartGameResult>.BadRequest("At least one player must be marked as creator");
-
-            if (players.Count == 0)
-                return AppResult<StartGameResult>.BadRequest("At least one player is required");
-
-            // FEATURE 1: Validazione minimo 2 giocatori (1 creatore + 1 normale)
-            var creatorCount = players.Count(p => p.IsCreator);
-            var normalPlayerCount = players.Count(p => !p.IsCreator);
-
-            if (creatorCount == 0)
-                return AppResult<StartGameResult>.BadRequest("At least one creator is required");
-
-            if (normalPlayerCount == 0)
-                return AppResult<StartGameResult>.BadRequest("At least one normal player (non-creator) is required");
-
-            // Step 2: Create the creator player first
-            var creatorPlayer = new Player
-            {
-                Username = creatorData.Username,
-                AccessCode = creatorData.AccessCode,
-                IsCreator = true,
-                CurrentScore = initialScore,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            var addCreatorResult = await _playerRepository.AddAsync(creatorPlayer, cancellationToken);
-            if (addCreatorResult.IsFailure)
-                return AppResult<StartGameResult>.InternalServerError($"Failed to create creator player: {addCreatorResult.Errors.FirstOrDefault()?.Message}");
-
-            creatorPlayer = addCreatorResult.Value;
-
-            // Step 3: Create game with CreatorPlayerId set
-            var game = new Game
-            {
-                Name = name,
-                InitialScore = initialScore,
-                Status = GameStatus.Started,
-                CreatorPlayerId = creatorPlayer?.Id,
-                WinnerPlayerId = null,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            var addGameResult = await _gameRepository.AddAsync(game, cancellationToken);
-            if (addGameResult.IsFailure)
-                return AppResult<StartGameResult>.InternalServerError($"Failed to create game: {addGameResult.Errors.FirstOrDefault()?.Message}");
-
-            game = addGameResult.Value;
-
-            // Step 4: Update creator player with correct GameId
-            creatorPlayer.GameId = game.Id;
-            creatorPlayer.UpdatedAt = DateTime.UtcNow;
-
-            var updateCreatorResult = await _playerRepository.UpdateAsync(creatorPlayer, cancellationToken);
-            if (updateCreatorResult.IsFailure)
-                return AppResult<StartGameResult>.InternalServerError($"Failed to update creator player: {updateCreatorResult.Errors.FirstOrDefault()?.Message}");
-
-            // Step 5: Create other players
-            var createdPlayers = new List<Player> { creatorPlayer };
-
-            foreach (var playerData in players.Where(p => !p.IsCreator))
-            {
-                var player = new Player
-                {
-                    GameId = game.Id,
-                    Username = playerData.Username,
-                    AccessCode = playerData.AccessCode,
-                    IsCreator = false,
-                    CurrentScore = initialScore,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                var addPlayerResult = await _playerRepository.AddAsync(player, cancellationToken);
-                if (addPlayerResult.IsFailure)
-                    return AppResult<StartGameResult>.InternalServerError($"Failed to create player {playerData.Username}: {addPlayerResult.Errors.FirstOrDefault()?.Message}");
-
-                createdPlayers.Add(addPlayerResult.Value);
-            }
-
-            // Step 6: Create rules
-            foreach (var ruleData in rules)
-            {
-                var rule = new Rule
-                {
-                    GameId = game.Id,
-                    Name = ruleData.Name,
-                    RuleType = ruleData.RuleType,
-                    ScoreDelta = ruleData.ScoreDelta,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                var addRuleResult = await _ruleRepository.AddAsync(rule, cancellationToken);
-                if (addRuleResult.IsFailure)
-                    return AppResult<StartGameResult>.InternalServerError($"Failed to create rule {ruleData.Name}: {addRuleResult.Errors.FirstOrDefault()?.Message}");
-            }
-
-            // Step 7: Prepare credentials response
-            var credentials = players.Select(p => (p.Username, p.AccessCode, p.IsCreator)).ToList();
-
-            var result = new StartGameResult
-            {
-                GameId = game.Id,
-                Credentials = credentials
-            };
-
-            return AppResult<StartGameResult>.Created(result);
-        }
-        catch (Exception ex)
-        {
-            return AppResult<StartGameResult>.InternalServerError($"Failed to create game: {ex.Message}");
-        }
-    }
-
     public async Task<AppResult<Game>> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         try
@@ -398,38 +271,38 @@ internal sealed class GameManager : IGameManager
         }
     }
 
-    public async Task<AppResult<Game>> EndGameAsync(int gameId, int creatorPlayerId, CancellationToken cancellationToken = default)
+    public async Task<AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>> EndGameAsync(int gameId, int creatorPlayerId, CancellationToken cancellationToken = default)
     {
         try
         {
             var gameResult = await _gameRepository.GetByIdAsync(gameId, cancellationToken);
             if (gameResult.IsFailure)
-                return gameResult;
+                return gameResult.Adapt<AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>>();
 
             var game = gameResult.Value!;
 
             if (game.Status == GameStatus.Ended)
             {
                 _logger.LogWarning("Attempt to end already ended game {GameId}", gameId);
-                return AppResult<Game>.BadRequest("Game has already ended");
+                return AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>.BadRequest("Game has already ended");
             }
 
             if (game.CreatorPlayerId != creatorPlayerId)
             {
                 _logger.LogWarning("Player {PlayerId} attempted to end game but is not creator", creatorPlayerId);
-                return AppResult<Game>.Forbidden("Only the game creator can end the game");
+                return AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>.Forbidden("Only the game creator can end the game");
             }
 
             var playersResult = await _playerRepository.GetLeaderboardAsync(gameId, cancellationToken);
             if (playersResult.IsFailure)
-                return AppResult<Game>.InternalServerError("Failed to retrieve players for winner determination");
+                return AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>.InternalServerError("Failed to retrieve players for winner determination");
 
             var playersList = playersResult.Value!.ToList();
 
             if (playersList.Count == 0)
             {
                 _logger.LogWarning("Attempt to end game {GameId} with no players", gameId);
-                return AppResult<Game>.BadRequest("Cannot end game with no players");
+                return AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>.BadRequest("Cannot end game with no players");
             }
 
             var winner = playersList.First();
@@ -439,12 +312,19 @@ internal sealed class GameManager : IGameManager
             game.UpdatedAt = DateTime.UtcNow;
 
             _logger.LogInformation("Game {GameId} ended, winner is player {PlayerId}", gameId, winner.Id);
-            return await _gameRepository.UpdateAsync(game, cancellationToken);
+            var result = await _gameRepository.UpdateAsync(game, cancellationToken);
+            if (result.IsFailure)
+            {
+                _logger.LogError("Failed to update game {GameId} after ending", gameId);
+                return AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>.InternalServerError("Failed to update game");
+            }
+
+            return AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>.Success((game, winner, playersList));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Service error ending game {GameId}", gameId);
-            return AppResult<Game>.InternalServerError($"Service error: {ex.Message}");
+            return AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>.InternalServerError($"Service error: {ex.Message}");
         }
     }
 

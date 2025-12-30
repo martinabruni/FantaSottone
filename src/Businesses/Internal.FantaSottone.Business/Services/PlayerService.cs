@@ -89,19 +89,6 @@ internal sealed class PlayerService : IPlayerService
         }
     }
 
-    public async Task<AppResult<Player>> GetByCredentialsAsync(string username, string accessCode, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await _playerRepository.GetByCredentialsAsync(username, accessCode, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Service error getting player by credentials for username {Username}", username);
-            return AppResult<Player>.InternalServerError($"Service error: {ex.Message}");
-        }
-    }
-
     public async Task<AppResult<Player>> UpdateScoreAsync(int playerId, int newScore, CancellationToken cancellationToken = default)
     {
         try
