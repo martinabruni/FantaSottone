@@ -9,11 +9,6 @@ using Internal.FantaSottone.Domain.Results;
 public interface IPlayerRepository : IRepository<Player, int>
 {
     /// <summary>
-    /// Gets a player by username and access code
-    /// </summary>
-    Task<AppResult<Player>> GetByCredentialsAsync(string username, string passwordHash, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Gets all players for a game ordered by score descending (leaderboard)
     /// </summary>
     Task<AppResult<IEnumerable<Player>>> GetLeaderboardAsync(int gameId, CancellationToken cancellationToken = default);

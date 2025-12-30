@@ -9,11 +9,6 @@ using Internal.FantaSottone.Domain.Results;
 public interface IPlayerService : IService<Player, int>
 {
     /// <summary>
-    /// Gets a player by username and access code
-    /// </summary>
-    Task<AppResult<Player>> GetByCredentialsAsync(string username, string accessCode, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Updates player score
     /// </summary>
     Task<AppResult<Player>> UpdateScoreAsync(int playerId, int newScore, CancellationToken cancellationToken = default);

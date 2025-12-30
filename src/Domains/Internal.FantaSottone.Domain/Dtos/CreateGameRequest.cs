@@ -5,19 +5,8 @@ namespace Internal.FantaSottone.Domain.Dtos;
 /// </summary>
 public sealed class CreateGameRequest
 {
-    /// <summary>
-    /// Name of the game
-    /// </summary>
     public string Name { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Initial score for all players
-    /// </summary>
     public int InitialScore { get; set; }
-
-    /// <summary>
-    /// List of email addresses to invite
-    /// </summary>
     public List<string> InvitedEmails { get; set; } = [];
 }
 

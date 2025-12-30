@@ -8,7 +8,6 @@ using Internal.FantaSottone.Domain.Results;
 /// </summary>
 public interface IGameManager
 {
-
     /// <summary>
     /// Gets all games a user has been invited to
     /// </summary>
@@ -22,16 +21,6 @@ public interface IGameManager
         int initialScore,
         int creatorUserId,
         List<string> invitedEmails,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Creates a new game with players and rules
-    /// </summary>
-    Task<AppResult<StartGameResult>> StartGameAsync(
-        string name,
-        int initialScore,
-        List<(string Username, string AccessCode, bool IsCreator)> players,
-        List<(string Name, RuleType RuleType, int ScoreDelta)> rules,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -67,25 +56,15 @@ public interface IGameManager
     /// <summary>
     /// Ends a game and determines the winner
     /// </summary>
-    Task<AppResult<Game>> EndGameAsync(int gameId, int creatorPlayerId, CancellationToken cancellationToken = default);
+    Task<AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>> EndGameAsync(
+        int gameId,
+        int requestingUserId,
+        CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Checks if all rules are assigned or if 3+ players have score <= 0
-    /// </summary>
-    Task<bool> ShouldEndGameAsync(int gameId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Automatically ends game if conditions met, returns winner
-    /// </summary>
-    Task<AppResult<Game>> TryAutoEndGameAsync(int gameId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Invites a registered user to join a game
-    /// </summary>
     Task<AppResult<Player>> InvitePlayerAsync(int gameId, int userId, int requestingUserId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Validates that a user is a player in a specific game and sets it as active
+    /// Joins a game for the current user (activates the player for this session)
     /// </summary>
     Task<AppResult<Player>> JoinGameAsync(int gameId, int userId, CancellationToken cancellationToken = default);
 }
