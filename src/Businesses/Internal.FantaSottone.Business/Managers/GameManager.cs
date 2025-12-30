@@ -33,6 +33,157 @@ internal sealed class GameManager : IGameManager
         _logger = logger;
     }
 
+    public async Task<AppResult<IEnumerable<Game>>> GetUserGamesAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Get all players for this user
+            var allPlayers = await _playerRepository.GetAllAsync(cancellationToken);
+            if (allPlayers.IsFailure)
+                return AppResult<IEnumerable<Game>>.InternalServerError("Failed to retrieve players");
+
+            var userPlayers = allPlayers.Value!.Where(p => p.UserId == userId);
+
+            var games = new List<Game>();
+            foreach (var player in userPlayers)
+            {
+                if (player.GameId.HasValue)
+                {
+                    var gameResult = await _gameRepository.GetByIdAsync(player.GameId.Value, cancellationToken);
+                    if (gameResult.IsSuccess)
+                    {
+                        games.Add(gameResult.Value!);
+                    }
+                }
+            }
+
+            return AppResult<IEnumerable<Game>>.Success(games.Distinct());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving games for user {UserId}", userId);
+            return AppResult<IEnumerable<Game>>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<(Game game, Player creatorPlayer, List<string> invitedEmails, List<string> invalidEmails)>> CreateGameWithEmailInvitesAsync(
+        string name,
+        int initialScore,
+        int creatorUserId,
+        List<string> invitedEmails,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Validate creator user exists
+            var creatorUserResult = await _userRepository.GetByIdAsync(creatorUserId, cancellationToken);
+            if (creatorUserResult.IsFailure)
+                return AppResult<(Game, Player, List<string>, List<string>)>.NotFound("Creator user not found");
+
+            // Create game first
+            var game = new Game
+            {
+                Name = name,
+                InitialScore = initialScore,
+                Status = GameStatus.Started,
+                CreatorPlayerId = null, // Will be set after creating creator player
+                WinnerPlayerId = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var addGameResult = await _gameRepository.AddAsync(game, cancellationToken);
+            if (addGameResult.IsFailure)
+                return AppResult<(Game, Player, List<string>, List<string>)>.InternalServerError(
+                    $"Failed to create game: {addGameResult.Errors.FirstOrDefault()?.Message}");
+
+            game = addGameResult.Value!;
+
+            // Create creator player
+            var creatorPlayer = new Player
+            {
+                GameId = game.Id,
+                UserId = creatorUserId,
+                IsCreator = true,
+                CurrentScore = initialScore,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var addCreatorResult = await _playerRepository.AddAsync(creatorPlayer, cancellationToken);
+            if (addCreatorResult.IsFailure)
+            {
+                await _gameRepository.DeleteAsync(game.Id, cancellationToken); // Cleanup
+                return AppResult<(Game, Player, List<string>, List<string>)>.InternalServerError(
+                    $"Failed to create creator player: {addCreatorResult.Errors.FirstOrDefault()?.Message}");
+            }
+
+            creatorPlayer = addCreatorResult.Value!;
+
+            // Update game with creator player ID
+            game.CreatorPlayerId = creatorPlayer.Id;
+            await _gameRepository.UpdateAsync(game, cancellationToken);
+
+            // Process email invitations
+            var validEmails = new List<string>();
+            var invalidEmails = new List<string>();
+
+            foreach (var email in invitedEmails.Distinct())
+            {
+                // Skip creator's own email
+                if (email.Equals(creatorUserResult.Value!.Email, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var userResult = await _userRepository.GetByEmailAsync(email, cancellationToken);
+                if (userResult.IsFailure)
+                {
+                    invalidEmails.Add(email);
+                    continue;
+                }
+
+                var user = userResult.Value!;
+
+                // Check if user is already a player in this game
+                var existsResult = await _playerRepository.ExistsAsync(game.Id, user.Id, cancellationToken);
+                if (existsResult.IsSuccess && existsResult.Value!)
+                {
+                    validEmails.Add(email); // Already invited
+                    continue;
+                }
+
+                // Create player for invited user
+                var invitedPlayer = new Player
+                {
+                    GameId = game.Id,
+                    UserId = user.Id,
+                    IsCreator = false,
+                    CurrentScore = initialScore,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                var addPlayerResult = await _playerRepository.AddAsync(invitedPlayer, cancellationToken);
+                if (addPlayerResult.IsSuccess)
+                {
+                    validEmails.Add(email);
+                    _logger.LogInformation("User {UserId} ({Email}) invited to game {GameId}", user.Id, email, game.Id);
+                }
+                else
+                {
+                    invalidEmails.Add(email);
+                    _logger.LogWarning("Failed to invite user {Email} to game {GameId}", email, game.Id);
+                }
+            }
+
+            return AppResult<(Game, Player, List<string>, List<string>)>.Success((game, creatorPlayer, validEmails, invalidEmails));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating game with email invites");
+            return AppResult<(Game, Player, List<string>, List<string>)>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
     public async Task<AppResult<StartGameResult>> StartGameAsync(
         string name,
         int initialScore,
