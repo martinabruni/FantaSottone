@@ -2,7 +2,7 @@ import { useParams, Navigate } from "react-router-dom";
 import { useAuth } from "@/providers/auth/AuthProvider";
 import { useGames } from "@/providers/games/GamesProvider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GameStatusBar } from "../components/GameStatusBar";
+// import { GameStatusBar } from "../components/GameStatusBar";
 import { LeaderboardTab } from "../components/LeaderboardTab";
 import { RulesTab } from "../components/RulesTab";
 import { EndGameDialog } from "../components/EndGameDialog";
@@ -76,7 +76,7 @@ export function GamePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <GameStatusBar onStatusChange={setGameStatus} />
+        {/* <GameStatusBar onStatusChange={setGameStatus} /> */}
         {canEndGame && (
           <ActionButton
             actionType="error"

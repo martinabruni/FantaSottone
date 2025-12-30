@@ -1,15 +1,73 @@
 import React, { createContext, useContext, useMemo } from "react";
-import {
-  StartGameRequest,
-  StartGameResponse,
-  EndGameResponse,
-} from "@/types/dto";
 import { ITransport } from "@/lib/http/Transport";
 import { createTransport } from "@/lib/http/transportFactory";
 import { useAuth } from "../auth/AuthProvider";
 
+// DTOs
+export interface CreateGameRequest {
+  name: string;
+  initialScore: number;
+  invitedEmails: string[];
+}
+
+export interface GameDto {
+  id: number;
+  name: string;
+  initialScore: number;
+  status: number;
+  creatorPlayerId: number;
+}
+
+export interface PlayerDto {
+  id: number;
+  username: string;
+  isCreator: boolean;
+}
+
+export interface CreateGameResponse {
+  game: GameDto;
+  creatorPlayer: PlayerDto;
+  invitedEmails: string[];
+  invalidEmails: string[];
+}
+
+export interface InvitePlayerRequest {
+  email: string;
+}
+
+export interface GameStatusResponse {
+  status: number;
+}
+
+export interface EndGameInfoDto {
+  id: number;
+  status: number;
+  winnerPlayerId: number;
+}
+
+export interface WinnerDto {
+  id: number;
+  username: string;
+  currentScore: number;
+}
+
+export interface LeaderboardPlayerDto {
+  id: number;
+  username: string;
+  currentScore: number;
+  isCreator: boolean;
+}
+
+export interface EndGameResponse {
+  game: EndGameInfoDto;
+  winner: WinnerDto;
+  leaderboard: LeaderboardPlayerDto[];
+}
+
 interface GamesContextValue {
-  startGame: (request: StartGameRequest) => Promise<StartGameResponse>;
+  createGame: (request: CreateGameRequest) => Promise<CreateGameResponse>;
+  invitePlayer: (gameId: number, request: InvitePlayerRequest) => Promise<{ message: string; playerId: number }>;
+  getGameStatus: (gameId: number) => Promise<GameStatusResponse>;
   endGame: (gameId: number) => Promise<EndGameResponse>;
 }
 
@@ -22,21 +80,37 @@ export function GamesProvider({ children }: { children: React.ReactNode }) {
     [session]
   );
 
-  const startGame = async (
-    request: StartGameRequest
-  ): Promise<StartGameResponse> => {
-    return transport.post<StartGameRequest, StartGameResponse>(
-      "/api/games/start",
+  const createGame = async (
+    request: CreateGameRequest
+  ): Promise<CreateGameResponse> => {
+    return transport.post<CreateGameRequest, CreateGameResponse>(
+      "/api/Games/create",
       request
     );
   };
 
+  const invitePlayer = async (
+    gameId: number,
+    request: InvitePlayerRequest
+  ): Promise<{ message: string; playerId: number }> => {
+    return transport.post<InvitePlayerRequest, { message: string; playerId: number }>(
+      `/api/Games/${gameId}/invite`,
+      request
+    );
+  };
+
+  const getGameStatus = async (gameId: number): Promise<GameStatusResponse> => {
+    return transport.get<GameStatusResponse>(`/api/Games/${gameId}/status`);
+  };
+
   const endGame = async (gameId: number): Promise<EndGameResponse> => {
-    return transport.post<{}, EndGameResponse>(`/api/games/${gameId}/end`, {});
+    return transport.post<{}, EndGameResponse>(`/api/Games/${gameId}/end`, {});
   };
 
   const value: GamesContextValue = {
-    startGame,
+    createGame,
+    invitePlayer,
+    getGameStatus,
     endGame,
   };
 

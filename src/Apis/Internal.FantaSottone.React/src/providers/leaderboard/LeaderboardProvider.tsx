@@ -1,11 +1,18 @@
 import React, { createContext, useContext, useMemo } from "react";
-import { LeaderboardEntry } from "@/types/dto";
 import { ITransport } from "@/lib/http/Transport";
 import { createTransport } from "@/lib/http/transportFactory";
 import { useAuth } from "../auth/AuthProvider";
 
+// DTOs
+export interface LeaderboardPlayerDto {
+  id: number;
+  username: string;
+  currentScore: number;
+  isCreator: boolean;
+}
+
 interface LeaderboardContextValue {
-  getLeaderboard: (gameId: number) => Promise<LeaderboardEntry[]>;
+  getLeaderboard: (gameId: number) => Promise<LeaderboardPlayerDto[]>;
 }
 
 const LeaderboardContext = createContext<LeaderboardContextValue | undefined>(
@@ -25,9 +32,9 @@ export function LeaderboardProvider({
 
   const getLeaderboard = async (
     gameId: number
-  ): Promise<LeaderboardEntry[]> => {
-    return transport.get<LeaderboardEntry[]>(
-      `/api/games/${gameId}/leaderboard`
+  ): Promise<LeaderboardPlayerDto[]> => {
+    return transport.get<LeaderboardPlayerDto[]>(
+      `/api/Games/${gameId}/leaderboard`
     );
   };
 

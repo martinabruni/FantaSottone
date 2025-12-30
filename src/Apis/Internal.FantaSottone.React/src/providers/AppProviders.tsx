@@ -1,5 +1,6 @@
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider } from "./auth/AuthProvider";
+import { UsersProvider } from "./users/UsersProvider";
 import { GamesProvider } from "./games/GamesProvider";
 import { LeaderboardProvider } from "./leaderboard/LeaderboardProvider";
 import { RulesProvider } from "./rules/RulesProvider";
@@ -17,13 +18,15 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
       <AuthProvider>
-        <GamesProvider>
-          <LeaderboardProvider>
-            <RulesProvider>
-              <AssignmentsProvider>{children}</AssignmentsProvider>
-            </RulesProvider>
-          </LeaderboardProvider>
-        </GamesProvider>
+        <UsersProvider>
+          <GamesProvider>
+            <LeaderboardProvider>
+              <RulesProvider>
+                <AssignmentsProvider>{children}</AssignmentsProvider>
+              </RulesProvider>
+            </LeaderboardProvider>
+          </GamesProvider>
+        </UsersProvider>
       </AuthProvider>
     </GoogleOAuthProvider>
   );

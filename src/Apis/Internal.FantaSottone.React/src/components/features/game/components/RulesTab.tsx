@@ -53,7 +53,7 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
     setAssigning(ruleId);
 
     try {
-      await assignRule(parseInt(gameId), ruleId, session.playerId);
+      await assignRule(parseInt(gameId), ruleId);
 
       toast({
         variant: "success",
