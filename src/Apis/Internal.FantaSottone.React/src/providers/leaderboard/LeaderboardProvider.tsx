@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 // DTOs
 export interface LeaderboardPlayerDto {
   id: number;
-  username: string;
+  email: string; // ✅ CAMBIATO: username -> email
   currentScore: number;
   isCreator: boolean;
 }

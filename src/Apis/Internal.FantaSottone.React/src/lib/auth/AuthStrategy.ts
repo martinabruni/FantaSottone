@@ -1,16 +1,16 @@
-import { LoginRequest, LoginResponse } from "@/types/dto";
+import { LoginResponse } from "@/types/dto";
 import { Role } from "./roles";
 
 export interface SessionData {
   token: string;
   playerId: number;
   gameId: number;
-  username: string;
+  email: string; // ✅ CAMBIATO: username -> email
   role: Role;
 }
 
 export interface IAuthStrategy {
-  login(credentials: LoginRequest): Promise<LoginResponse>;
+  // ❌ RIMOSSO: login con LoginRequest (non esiste più)
   logout(): Promise<void>;
   getSession(): SessionData | null;
   saveSession(response: LoginResponse): void;

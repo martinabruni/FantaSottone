@@ -2,7 +2,6 @@ import { useParams, Navigate } from "react-router-dom";
 import { useAuth } from "@/providers/auth/AuthProvider";
 import { useGames } from "@/providers/games/GamesProvider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-// import { GameStatusBar } from "../components/GameStatusBar";
 import { LeaderboardTab } from "../components/LeaderboardTab";
 import { RulesTab } from "../components/RulesTab";
 import { EndGameDialog } from "../components/EndGameDialog";
@@ -56,7 +55,8 @@ export function GamePage() {
       toast({
         variant: "success",
         title: "Partita terminata",
-        description: `Vincitore: ${response.winner.username} con ${response.winner.currentScore} punti!`,
+        // ✅ MODIFICATO: mostra email invece di username
+        description: `Vincitore: ${response.winner.email} con ${response.winner.currentScore} punti!`,
       });
     } catch (error) {
       toast({
@@ -76,7 +76,6 @@ export function GamePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        {/* <GameStatusBar onStatusChange={setGameStatus} /> */}
         {canEndGame && (
           <ActionButton
             actionType="error"

@@ -65,7 +65,8 @@ export function LeaderboardTab() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">{player.username}</span>
+                  {/* ✅ CAMBIATO: mostra email invece di username */}
+                  <span className="font-semibold">{player.email}</span>
                   {isCurrentPlayer && <Badge variant="secondary">Tu</Badge>}
                   {player.isCreator && (
                     <Badge variant="outline">Creatore</Badge>

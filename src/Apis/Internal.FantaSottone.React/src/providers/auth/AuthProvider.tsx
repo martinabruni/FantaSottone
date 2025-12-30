@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { LoginRequest, LoginResponse } from "@/types/dto";
 import { IAuthStrategy, SessionData } from "@/lib/auth/AuthStrategy";
 import { MockAuthStrategy } from "@/lib/auth/MockAuthStrategy";
 import { JwtAuthStrategy } from "@/lib/auth/JwtAuthStrategy";
-import { GoogleAuthStrategy, GoogleAuthResponse } from "@/lib/auth/GoogleAuthStrategy";
+import {
+  GoogleAuthStrategy,
+  GoogleAuthResponse,
+} from "@/lib/auth/GoogleAuthStrategy";
 import { createTransport } from "@/lib/http/transportFactory";
 import { Role, getPermissions, UserPermissions } from "@/lib/auth/roles";
 
@@ -13,14 +15,14 @@ interface AuthContextValue {
   loading: boolean;
   error: Error | null;
   permissions: UserPermissions;
-  login: (credentials: LoginRequest) => Promise<LoginResponse | undefined>;
+  // ❌ RIMOSSO: login tradizionale
   loginWithGoogle: (idToken: string) => Promise<GoogleAuthResponse>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function createAuthStrategy(getToken?: () => string | null): IAuthStrategy {
+function createAuthStrategy(): IAuthStrategy {
   const authStrategy = import.meta.env.VITE_AUTH_STRATEGY || "mock";
 
   if (authStrategy === "mock") {
@@ -28,11 +30,12 @@ function createAuthStrategy(getToken?: () => string | null): IAuthStrategy {
   }
 
   // JWT strategy - uses transportFactory
-  const transport = createTransport(getToken);
-  return new JwtAuthStrategy(transport);
+  return new JwtAuthStrategy();
 }
 
-function createGoogleAuthStrategy(getToken?: () => string | null): GoogleAuthStrategy {
+function createGoogleAuthStrategy(
+  getToken?: () => string | null
+): GoogleAuthStrategy {
   // Google auth always uses a transport (not mock strategy)
   const transport = createTransport(getToken);
   return new GoogleAuthStrategy(transport);
@@ -46,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Create getToken function that returns current token
   const getToken = () => session?.token ?? null;
 
-  const [strategy] = useState<IAuthStrategy>(() => createAuthStrategy(getToken));
+  const [strategy] = useState<IAuthStrategy>(() => createAuthStrategy());
   const [googleStrategy] = useState<GoogleAuthStrategy>(() =>
     createGoogleAuthStrategy(getToken)
   );
@@ -62,25 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(jwtSession || googleSession);
   }, [strategy, googleStrategy]);
 
-  const login = async (
-    credentials: LoginRequest
-  ): Promise<LoginResponse | undefined> => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await strategy.login(credentials);
-      strategy.saveSession(response);
-      setSession(strategy.getSession());
-      return response;
-    } catch (err) {
-      const error = err as Error;
-      setError(error);
-      return undefined;
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ❌ RIMOSSO: metodo login tradizionale
 
   const loginWithGoogle = async (
     idToken: string
@@ -115,7 +100,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     error,
     permissions,
-    login,
     loginWithGoogle,
     logout,
   };

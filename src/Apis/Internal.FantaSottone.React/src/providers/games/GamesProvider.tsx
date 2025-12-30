@@ -20,7 +20,7 @@ export interface GameDto {
 
 export interface PlayerDto {
   id: number;
-  username: string;
+  email: string; // ✅ CAMBIATO: username -> email
   isCreator: boolean;
 }
 
@@ -47,13 +47,13 @@ export interface EndGameInfoDto {
 
 export interface WinnerDto {
   id: number;
-  username: string;
+  email: string; // ✅ CAMBIATO: username -> email
   currentScore: number;
 }
 
 export interface LeaderboardPlayerDto {
   id: number;
-  username: string;
+  email: string; // ✅ CAMBIATO: username -> email
   currentScore: number;
   isCreator: boolean;
 }

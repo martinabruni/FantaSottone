@@ -17,11 +17,6 @@ export class GoogleAuthStrategy implements IAuthStrategy {
     this.transport = transport;
   }
 
-  async login(): Promise<LoginResponse> {
-    // This method is not used for Google auth, but required by interface
-    throw new Error("Use loginWithGoogle instead");
-  }
-
   async loginWithGoogle(idToken: string): Promise<GoogleAuthResponse> {
     const response = await this.transport.post<
       { idToken: string },
@@ -51,7 +46,7 @@ export class GoogleAuthStrategy implements IAuthStrategy {
       token: response.token,
       playerId: response.player.id,
       gameId: response.game.id,
-      username: response.player.username,
+      email: response.player.email, // ✅ CAMBIATO: username -> email
       role: response.player.isCreator ? "creator" : "player",
     };
     localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
@@ -62,7 +57,7 @@ export class GoogleAuthStrategy implements IAuthStrategy {
       token: response.token,
       playerId: 0, // Google users don't have a player ID initially
       gameId: 0, // Google users don't have a game ID initially
-      username: email,
+      email: email, // ✅ email da Google
       role: "player",
     };
     localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));

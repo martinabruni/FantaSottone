@@ -38,12 +38,12 @@ export function Header() {
             >
               {appName}
             </h1>
-            {isAuthenticated && session && (
+            {/* ✅ RIMOSSO: visualizzazione di session.username */}
+            {isAuthenticated && session && session.role === "creator" && (
               <>
                 <Separator orientation="vertical" className="h-6" />
                 <span className="text-sm text-muted-foreground">
-                  {session.username}
-                  {session.role === "creator" && " (Creator)"}
+                  (Creatore)
                 </span>
               </>
             )}

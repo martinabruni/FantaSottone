@@ -1,20 +1,21 @@
-import { LoginRequest, LoginResponse } from "@/types/dto";
+import { LoginResponse } from "@/types/dto";
 import { IAuthStrategy, SessionData } from "./AuthStrategy";
 import { getRoleFromIsCreator } from "./roles";
 
 const SESSION_KEY = "fantaSottone_session";
 
+// ⚠️ DEPRECATO: Questa strategia non è più usata con Google OAuth
+// Mantenuta solo per retrocompatibilità durante lo sviluppo
 export class MockAuthStrategy implements IAuthStrategy {
   private mockStore: Map<
     string,
-    { username: string; accessCode: string; response: LoginResponse }
+    { email: string; response: LoginResponse }
   > = new Map();
 
   constructor() {
-    // Seed with test data
-    this.mockStore.set("test1", {
-      username: "test1",
-      accessCode: "code1",
+    // Seed with test data usando email
+    this.mockStore.set("test1@example.com", {
+      email: "test1@example.com",
       response: {
         token: "mock-token-test1",
         game: {
@@ -28,16 +29,15 @@ export class MockAuthStrategy implements IAuthStrategy {
         player: {
           id: 1,
           gameId: 1,
-          username: "test1",
+          email: "test1@example.com", // ✅ CAMBIATO: username -> email
           isCreator: true,
           currentScore: 100,
         },
       },
     });
 
-    this.mockStore.set("test2", {
-      username: "test2",
-      accessCode: "code2",
+    this.mockStore.set("test2@example.com", {
+      email: "test2@example.com",
       response: {
         token: "mock-token-test2",
         game: {
@@ -51,7 +51,7 @@ export class MockAuthStrategy implements IAuthStrategy {
         player: {
           id: 2,
           gameId: 1,
-          username: "test2",
+          email: "test2@example.com", // ✅ CAMBIATO: username -> email
           isCreator: false,
           currentScore: 100,
         },
@@ -59,17 +59,7 @@ export class MockAuthStrategy implements IAuthStrategy {
     });
   }
 
-  async login(credentials: LoginRequest): Promise<LoginResponse> {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const user = this.mockStore.get(credentials.username);
-    if (!user || user.accessCode !== credentials.accessCode) {
-      throw new Error("Invalid credentials");
-    }
-
-    return user.response;
-  }
+  // ❌ RIMOSSO: metodo login tradizionale
 
   async logout(): Promise<void> {
     this.clearSession();
@@ -91,7 +81,7 @@ export class MockAuthStrategy implements IAuthStrategy {
       token: response.token,
       playerId: response.player.id,
       gameId: response.player.gameId,
-      username: response.player.username,
+      email: response.player.email, // ✅ CAMBIATO: username -> email
       role: getRoleFromIsCreator(response.player.isCreator),
     };
 
