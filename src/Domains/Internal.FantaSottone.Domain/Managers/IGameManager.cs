@@ -8,6 +8,22 @@ using Internal.FantaSottone.Domain.Results;
 /// </summary>
 public interface IGameManager
 {
+
+    /// <summary>
+    /// Gets all games a user has been invited to
+    /// </summary>
+    Task<AppResult<IEnumerable<Game>>> GetUserGamesAsync(int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a new game and invites players by email
+    /// </summary>
+    Task<AppResult<(Game game, Player creatorPlayer, List<string> invitedEmails, List<string> invalidEmails)>> CreateGameWithEmailInvitesAsync(
+        string name,
+        int initialScore,
+        int creatorUserId,
+        List<string> invitedEmails,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Creates a new game with players and rules
     /// </summary>
