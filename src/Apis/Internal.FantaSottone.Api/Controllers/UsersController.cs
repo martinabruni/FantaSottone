@@ -3,6 +3,7 @@ namespace Internal.FantaSottone.Api.Controllers;
 using Internal.FantaSottone.Domain.Dtos;
 using Internal.FantaSottone.Domain.Managers;
 using Internal.FantaSottone.Domain.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 /// <summary>
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize] // Requires JWT authentication for all endpoints
 public sealed class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -38,15 +40,14 @@ public sealed class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
     {
-        // TODO: Replace with actual authenticated user ID from JWT token
-        if (!Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) ||
-            !int.TryParse(userIdHeader, out var userId))
+        var userId = GetAuthenticatedUserId();
+        if (userId == 0)
         {
             return Unauthorized(new ProblemDetails
             {
                 Status = StatusCodes.Status401Unauthorized,
                 Title = "User not authenticated",
-                Detail = "X-User-Id header is required"
+                Detail = "Invalid or missing user ID in token"
             });
         }
 
@@ -85,15 +86,14 @@ public sealed class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetUserGames(CancellationToken cancellationToken)
     {
-        // TODO: Replace with actual authenticated user ID from JWT token
-        if (!Request.Headers.TryGetValue("X-User-Id", out var userIdHeader) ||
-            !int.TryParse(userIdHeader, out var userId))
+        var userId = GetAuthenticatedUserId();
+        if (userId == 0)
         {
             return Unauthorized(new ProblemDetails
             {
                 Status = StatusCodes.Status401Unauthorized,
                 Title = "User not authenticated",
-                Detail = "X-User-Id header is required"
+                Detail = "Invalid or missing user ID in token"
             });
         }
 
@@ -134,5 +134,14 @@ public sealed class UsersController : ControllerBase
         };
 
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Helper method to extract authenticated user ID from JWT token
+    /// </summary>
+    private int GetAuthenticatedUserId()
+    {
+        var userIdClaim = User.FindFirst("userId")?.Value;
+        return int.TryParse(userIdClaim, out var userId) ? userId : 0;
     }
 }
