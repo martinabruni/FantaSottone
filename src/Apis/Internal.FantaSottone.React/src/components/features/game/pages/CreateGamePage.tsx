@@ -93,6 +93,16 @@ export function CreateGamePage() {
       return;
     }
 
+    if (invitedEmails.length === 0) {
+      toast({
+        variant: "error",
+        title: "Giocatori insufficienti",
+        description:
+          "È necessario invitare almeno un altro giocatore. Servono almeno 2 giocatori per creare una partita.",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
 

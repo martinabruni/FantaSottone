@@ -78,14 +78,51 @@ internal sealed class GameManager : IGameManager
         {
             // Validate at least one invited email is provided (creator + 1 invited = 2 players minimum)
             if (invitedEmails == null || invitedEmails.Count == 0)
-                return AppResult<(Game, Player, List<string>, List<string>)>.BadRequest("Almeno un altro giocatore deve essere invitato per creare una partita");
+                return AppResult<(Game, Player, List<string>, List<string>)>.BadRequest("È necessario invitare almeno un altro giocatore. Servono almeno 2 giocatori per creare una partita.");
 
             // Validate creator user exists
             var creatorUserResult = await _userRepository.GetByIdAsync(creatorUserId, cancellationToken);
             if (creatorUserResult.IsFailure)
                 return AppResult<(Game, Player, List<string>, List<string>)>.NotFound("Creator user not found");
 
-            // Create game first
+            // ============================================================
+            // STEP 1: VALIDATE ALL EMAILS BEFORE CREATING ANYTHING
+            // ============================================================
+            var validatedUsers = new List<(string email, Domain.Models.User user)>();
+            var invalidEmails = new List<string>();
+
+            foreach (var email in invitedEmails.Distinct())
+            {
+                // Skip creator's own email
+                if (email.Equals(creatorUserResult.Value!.Email, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var userResult = await _userRepository.GetByEmailAsync(email, cancellationToken);
+                if (userResult.IsFailure)
+                {
+                    invalidEmails.Add(email);
+                }
+                else
+                {
+                    validatedUsers.Add((email, userResult.Value!));
+                }
+            }
+
+            // If ANY email is invalid, return error and DO NOT create the game
+            if (invalidEmails.Count > 0)
+            {
+                var invalidEmailsList = string.Join(", ", invalidEmails);
+                return AppResult<(Game, Player, List<string>, List<string>)>.BadRequest(
+                    $"Le seguenti email non sono registrate nel sistema: {invalidEmailsList}. Tutti i giocatori devono essere già registrati per poter creare una partita.");
+            }
+
+            // Validate we have at least one valid invited user (excluding creator)
+            if (validatedUsers.Count == 0)
+                return AppResult<(Game, Player, List<string>, List<string>)>.BadRequest("È necessario invitare almeno un altro giocatore. Servono almeno 2 giocatori per creare una partita.");
+
+            // ============================================================
+            // STEP 2: ALL EMAILS ARE VALID - NOW CREATE THE GAME
+            // ============================================================
             var game = new Game
             {
                 Name = name,
@@ -129,26 +166,14 @@ internal sealed class GameManager : IGameManager
             game.CreatorPlayerId = creatorPlayer.Id;
             await _gameRepository.UpdateAsync(game, cancellationToken);
 
-            // Process email invitations
+            // ============================================================
+            // STEP 3: CREATE PLAYERS FOR ALL VALIDATED USERS
+            // ============================================================
             var validEmails = new List<string>();
-            var invalidEmails = new List<string>();
 
-            foreach (var email in invitedEmails.Distinct())
+            foreach (var (email, user) in validatedUsers)
             {
-                // Skip creator's own email
-                if (email.Equals(creatorUserResult.Value!.Email, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var userResult = await _userRepository.GetByEmailAsync(email, cancellationToken);
-                if (userResult.IsFailure)
-                {
-                    invalidEmails.Add(email);
-                    continue;
-                }
-
-                var user = userResult.Value!;
-
-                // Check if user is already a player in this game
+                // Check if user is already a player in this game (shouldn't happen but just in case)
                 var existsResult = await _playerRepository.ExistsAsync(game.Id, user.Id, cancellationToken);
                 if (existsResult.IsSuccess && existsResult.Value!)
                 {
@@ -175,12 +200,12 @@ internal sealed class GameManager : IGameManager
                 }
                 else
                 {
-                    invalidEmails.Add(email);
-                    _logger.LogWarning("Failed to invite user {Email} to game {GameId}", email, game.Id);
+                    // This shouldn't happen since we validated all emails, but log it
+                    _logger.LogError("Failed to create player for validated user {Email} in game {GameId}", email, game.Id);
                 }
             }
 
-            return AppResult<(Game, Player, List<string>, List<string>)>.Success((game, creatorPlayer, validEmails, invalidEmails));
+            return AppResult<(Game, Player, List<string>, List<string>)>.Success((game, creatorPlayer, validEmails, []));
         }
         catch (Exception ex)
         {

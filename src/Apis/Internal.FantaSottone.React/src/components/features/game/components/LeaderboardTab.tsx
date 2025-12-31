@@ -48,15 +48,17 @@ export function LeaderboardTab() {
   return (
     <div className="space-y-3">
       {leaderboard.map((player, index) => {
-        const isCurrentPlayer = session?.playerId === player.id;
+        // Confronta l'email invece del playerId per identificare l'utente corrente
+        const isCurrentPlayer =
+          session?.email?.toLowerCase() === player.email?.toLowerCase();
 
         return (
           <div
             key={player.id}
-            className={`flex items-center justify-between p-4 rounded-lg border ${
+            className={`flex items-center justify-between p-4 rounded-lg border transition-all ${
               isCurrentPlayer
-                ? "bg-blue-50 border-blue-400 dark:bg-blue-950/40 dark:border-blue-800"
-                : "bg-card"
+                ? "bg-blue-50 border-blue-500 dark:bg-blue-950/40 dark:border-blue-600 shadow-md border-2 ring-2 ring-blue-200 dark:ring-blue-900"
+                : "bg-card hover:bg-accent/50"
             }`}
           >
             <div className="flex items-center gap-4">
@@ -65,9 +67,18 @@ export function LeaderboardTab() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  {/* ✅ CAMBIATO: mostra email invece di username */}
-                  <span className="font-semibold">{player.email}</span>
-                  {isCurrentPlayer && <Badge variant="secondary">Tu</Badge>}
+                  <span
+                    className={`font-semibold ${
+                      isCurrentPlayer ? "text-blue-700 dark:text-blue-300" : ""
+                    }`}
+                  >
+                    {player.email}
+                  </span>
+                  {isCurrentPlayer && (
+                    <Badge variant="default" className="bg-blue-600">
+                      Tu
+                    </Badge>
+                  )}
                   {player.isCreator && (
                     <Badge variant="outline">Creatore</Badge>
                   )}
@@ -75,7 +86,13 @@ export function LeaderboardTab() {
               </div>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-bold">{player.currentScore}</span>
+              <span
+                className={`text-2xl font-bold ${
+                  isCurrentPlayer ? "text-blue-700 dark:text-blue-300" : ""
+                }`}
+              >
+                {player.currentScore}
+              </span>
               <p className="text-xs text-muted-foreground">punti</p>
             </div>
           </div>
