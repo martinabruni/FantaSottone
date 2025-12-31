@@ -15,7 +15,9 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
             "http://localhost:5173",  // Vite dev server
             "http://localhost:5174",
-            "http://localhost:3000"   // Alternative port
+            "http://localhost:3000",   // Alternative port,
+            "https://yellow-water-09ed8a903.1.azurestaticapps.net/",
+            "https://gentle-tree-02e7ce303.3.azurestaticapps.net"
         )
         .AllowAnyMethod()
         .AllowAnyHeader()
