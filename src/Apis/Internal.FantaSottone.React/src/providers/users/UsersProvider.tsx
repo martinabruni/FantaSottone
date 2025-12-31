@@ -2,31 +2,10 @@ import React, { createContext, useContext, useMemo } from "react";
 import { ITransport } from "@/lib/http/Transport";
 import { createTransport } from "@/lib/http/transportFactory";
 import { useAuth } from "../auth/AuthProvider";
-
-// DTOs
-export interface UserProfileDto {
-  userId: number;
-  email: string;
-  profileImageUrl: string | null;
-  createdAt: string;
-}
-
-export interface GetUserProfileResponse {
-  profile: UserProfileDto;
-}
-
-export interface GameInvitationDto {
-  gameId: number;
-  gameName: string;
-  initialScore: number;
-  status: number;
-  playerCount: number;
-  createdAt: string;
-}
-
-export interface GetUserGamesResponse {
-  games: GameInvitationDto[];
-}
+import {
+  GetUserGamesResponse,
+  GetUserProfileResponse,
+} from "@/types/user-types";
 
 interface UsersContextValue {
   getUserProfile: () => Promise<GetUserProfileResponse>;

@@ -1,14 +1,12 @@
 // Aggiungi questi tipi al file src/types/dto.ts o crea un nuovo file src/types/user-types.ts
 
-import { GameStatus } from "./entities";
-
 /**
  * User profile information
  */
 export interface UserProfileDto {
   userId: number;
   email: string;
-  profileImageUrl?: string;
+  profileImageUrl: string | null;
   createdAt: string;
 }
 
@@ -26,7 +24,7 @@ export interface GameInvitationDto {
   gameId: number;
   gameName: string;
   initialScore: number;
-  status: GameStatus;
+  status: number;
   playerCount: number;
   createdAt: string;
 }
