@@ -99,6 +99,7 @@ jobs:
           VITE_AUTH_STRATEGY: ${{ vars.VITE_AUTH_STRATEGY }}
           VITE_POLLING_INTERVAL_MS: ${{ vars.VITE_POLLING_INTERVAL_MS }}
           VITE_APP_NAME: ${{ vars.VITE_APP_NAME }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Deploy Frontend
         uses: Azure/static-web-apps-deploy@v1
