@@ -76,9 +76,8 @@ internal sealed class GameManager : IGameManager
     {
         try
         {
-            // Validate at least one invited email is provided (creator + 1 invited = 2 players minimum)
-            if (invitedEmails == null || invitedEmails.Count == 0)
-                return AppResult<(Game, Player, List<string>, List<string>)>.BadRequest("È necessario invitare almeno un altro giocatore. Servono almeno 2 giocatori per creare una partita.");
+            // invitedEmails can now be empty - players will be invited later in draft state
+            invitedEmails ??= [];
 
             // Validate creator user exists
             var creatorUserResult = await _userRepository.GetByIdAsync(creatorUserId, cancellationToken);
@@ -86,7 +85,7 @@ internal sealed class GameManager : IGameManager
                 return AppResult<(Game, Player, List<string>, List<string>)>.NotFound("Creator user not found");
 
             // ============================================================
-            // STEP 1: VALIDATE ALL EMAILS BEFORE CREATING ANYTHING
+            // STEP 1: VALIDATE ALL EMAILS BEFORE CREATING ANYTHING (if any provided)
             // ============================================================
             var validatedUsers = new List<(string email, Domain.Models.User user)>();
             var invalidEmails = new List<string>();
@@ -115,10 +114,6 @@ internal sealed class GameManager : IGameManager
                 return AppResult<(Game, Player, List<string>, List<string>)>.BadRequest(
                     $"Le seguenti email non sono registrate nel sistema: {invalidEmailsList}. Tutti i giocatori devono essere già registrati per poter creare una partita.");
             }
-
-            // Validate we have at least one valid invited user (excluding creator)
-            if (validatedUsers.Count == 0)
-                return AppResult<(Game, Player, List<string>, List<string>)>.BadRequest("È necessario invitare almeno un altro giocatore. Servono almeno 2 giocatori per creare una partita.");
 
             // ============================================================
             // STEP 2: ALL EMAILS ARE VALID - NOW CREATE THE GAME
@@ -507,6 +502,63 @@ internal sealed class GameManager : IGameManager
         catch (Exception ex)
         {
             _logger.LogError(ex, "Service error inviting user {UserId} to game {GameId}", userId, gameId);
+            return AppResult<Player>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<Player>> InvitePlayerByEmailAsync(int gameId, string email, int requestingUserId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var gameResult = await _gameRepository.GetByIdAsync(gameId, cancellationToken);
+            if (gameResult.IsFailure)
+                return AppResult<Player>.NotFound($"Game with ID {gameId} not found");
+
+            var game = gameResult.Value!;
+
+            // Only allow invites in Draft state
+            if (game.Status != GameStatus.Draft)
+            {
+                _logger.LogWarning("Attempt to invite player to game {GameId} which is not in Draft status (current: {Status})", gameId, game.Status);
+                return AppResult<Player>.BadRequest("I giocatori possono essere invitati solo quando la partita è in stato bozza");
+            }
+
+            // Only creator can invite
+            var isCreatorResult = await _gameRepository.IsUserCreatorAsync(gameId, requestingUserId, cancellationToken);
+            if (isCreatorResult.IsFailure || !isCreatorResult.Value!)
+            {
+                _logger.LogWarning("User {UserId} attempted to invite to game {GameId} but is not creator", requestingUserId, gameId);
+                return AppResult<Player>.Forbidden("Solo il creatore può invitare giocatori");
+            }
+
+            // Find user by email
+            var userResult = await _userRepository.GetByEmailAsync(email, cancellationToken);
+            if (userResult.IsFailure)
+                return AppResult<Player>.NotFound($"Utente con email '{email}' non trovato");
+
+            var user = userResult.Value!;
+
+            // Check if user is already a player in this game
+            var existsResult = await _playerRepository.ExistsAsync(gameId, user.Id, cancellationToken);
+            if (existsResult.IsSuccess && existsResult.Value!)
+                return AppResult<Player>.Conflict("L'utente è già un giocatore in questa partita");
+
+            var player = new Player
+            {
+                GameId = gameId,
+                UserId = user.Id,
+                IsCreator = false,
+                CurrentScore = game.InitialScore,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _logger.LogInformation("User {UserId} ({Email}) invited to game {GameId} by creator {CreatorId}", user.Id, email, gameId, requestingUserId);
+            return await _playerRepository.AddAsync(player, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error inviting user by email {Email} to game {GameId}", email, gameId);
             return AppResult<Player>.InternalServerError($"Service error: {ex.Message}");
         }
     }

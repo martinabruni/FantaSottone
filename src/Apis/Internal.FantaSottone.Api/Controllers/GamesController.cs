@@ -236,6 +236,43 @@ public sealed class GamesController : ControllerBase
     }
 
     /// <summary>
+    /// Invites a user to join a game by email (creator only, draft state only)
+    /// </summary>
+    [HttpPost("{gameId}/invite-by-email")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> InvitePlayerByEmail(int gameId, [FromBody] InvitePlayerByEmailRequest request, CancellationToken cancellationToken)
+    {
+        var requestingUserId = GetAuthenticatedUserId();
+        if (requestingUserId == 0)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "User not authenticated",
+                Detail = "Invalid or missing user ID in token"
+            });
+        }
+
+        var result = await _gameManager.InvitePlayerByEmailAsync(gameId, request.Email, requestingUserId, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return StatusCode((int)result.StatusCode, new ProblemDetails
+            {
+                Status = (int)result.StatusCode,
+                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to invite player",
+                Detail = string.Join("; ", result.Errors.Select(e => e.Message))
+            });
+        }
+
+        return Ok(new { message = "Player invited successfully", playerId = result.Value!.Id });
+    }
+
+    /// <summary>
     /// Gets the leaderboard for a game
     /// </summary>
     [HttpGet("{gameId}/leaderboard")]

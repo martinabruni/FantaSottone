@@ -128,6 +128,16 @@ internal sealed class RuleAssignmentService : IRuleAssignmentService
                 return AppResult<RuleAssignment>.NotFound($"Game with ID {gameId} not found");
             }
 
+            var game = gameResult.Value!;
+
+            // 1.1 Verify game is not in Draft state - rules cannot be assigned in draft
+            if (game.Status == GameStatus.Draft)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                _logger.LogWarning("Attempt to assign rule in game {GameId} which is in Draft status", gameId);
+                return AppResult<RuleAssignment>.BadRequest("Le regole non possono essere assegnate quando la partita è in stato bozza. Avvia la partita prima di assegnare regole.");
+            }
+
             // 2. Verify rule exists and belongs to this game
             var ruleResult = await _ruleRepository.GetByIdAsync(ruleId, cancellationToken);
             if (ruleResult.IsFailure)

@@ -10,66 +10,19 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/useToast";
-import { X, Plus, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useGames } from "@/providers/games/GamesProvider";
 import { useGame } from "@/providers/games/GameProvider";
-import { useAuth } from "@/providers/auth/AuthProvider";
 
 export function CreateGamePage() {
   const [gameName, setGameName] = useState("");
   const [initialScore, setInitialScore] = useState("100");
-  const [emailInput, setEmailInput] = useState("");
-  const [invitedEmails, setInvitedEmails] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { createGame } = useGames();
   const { joinGame } = useGame();
-  const { session } = useAuth();
-
-  const handleAddEmail = () => {
-    const trimmedEmail = emailInput.trim();
-
-    if (!trimmedEmail) {
-      toast({
-        variant: "error",
-        title: "Username vuoto",
-        description: "Inserisci un username valido",
-      });
-      return;
-    }
-
-    // Don't allow inviting yourself
-    if (
-      session?.email &&
-      trimmedEmail.toLowerCase() === session.email.toLowerCase()
-    ) {
-      toast({
-        variant: "error",
-        title: "Username non valido",
-        description: "Non puoi invitare te stesso",
-      });
-      return;
-    }
-
-    if (invitedEmails.includes(trimmedEmail)) {
-      toast({
-        variant: "error",
-        title: "Username duplicato",
-        description: "Questo username è già stato aggiunto",
-      });
-      return;
-    }
-
-    setInvitedEmails([...invitedEmails, trimmedEmail]);
-    setEmailInput("");
-  };
-
-  const handleRemoveEmail = (email: string) => {
-    setInvitedEmails(invitedEmails.filter((e) => e !== email));
-  };
 
   const handleCreateGame = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,44 +46,22 @@ export function CreateGamePage() {
       return;
     }
 
-    if (invitedEmails.length === 0) {
-      toast({
-        variant: "error",
-        title: "Giocatori insufficienti",
-        description:
-          "È necessario invitare almeno un altro giocatore. Servono almeno 2 giocatori per creare una partita.",
-      });
-      return;
-    }
-
     try {
       setLoading(true);
 
-      // ✅ FIXED: Use correct response structure
       const response = await createGame({
         name: gameName,
         initialScore: score,
-        invitedEmails: invitedEmails,
       });
 
-      // ✅ FIXED: Join the game automatically to get player role
+      // Join the game automatically to get player role
       await joinGame(response.gameId);
 
       toast({
         variant: "success",
         title: "Partita creata!",
-        description: `La partita "${response.gameName}" è stata creata con successo`,
+        description: `La partita "${response.gameName}" è stata creata con successo. Invita i giocatori dalla scheda Classifica.`,
       });
-
-      if (response.invalidEmails.length > 0) {
-        toast({
-          variant: "warning",
-          title: "Alcuni inviti non sono andati a buon fine",
-          description: `Le seguenti email non sono state trovate: ${response.invalidEmails.join(
-            ", "
-          )}`,
-        });
-      }
 
       // Navigate to the game page
       navigate(`/game/${response.gameId}`);
@@ -164,7 +95,8 @@ export function CreateGamePage() {
         <CardHeader>
           <CardTitle>Crea una nuova partita</CardTitle>
           <CardDescription>
-            Configura la partita e invita altri giocatori via email
+            Configura la partita. Potrai invitare i giocatori dalla scheda
+            Classifica prima di avviare la partita.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -192,50 +124,6 @@ export function CreateGamePage() {
                 disabled={loading}
                 min="1"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Invita giocatori</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  placeholder="username"
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddEmail();
-                    }
-                  }}
-                  disabled={loading}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleAddEmail}
-                  disabled={loading}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              {invitedEmails.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {invitedEmails.map((email) => (
-                    <Badge key={email} variant="secondary" className="gap-1">
-                      {email}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveEmail(email)}
-                        disabled={loading}
-                        className="ml-1 hover:text-destructive"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>

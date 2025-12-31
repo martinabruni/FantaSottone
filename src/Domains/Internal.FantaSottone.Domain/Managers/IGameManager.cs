@@ -66,6 +66,11 @@ public interface IGameManager
     Task<AppResult<Player>> InvitePlayerAsync(int gameId, int userId, int requestingUserId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Invites a player to a game by email (creator only, draft state only)
+    /// </summary>
+    Task<AppResult<Player>> InvitePlayerByEmailAsync(int gameId, string email, int requestingUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Joins a game for the current user (activates the player for this session)
     /// </summary>
     Task<AppResult<Player>> JoinGameAsync(int gameId, int userId, CancellationToken cancellationToken = default);

@@ -7,7 +7,6 @@ import { useAuth } from "../auth/AuthProvider";
 export interface CreateGameRequest {
   name: string;
   initialScore: number;
-  invitedEmails: string[];
 }
 
 export interface GameDto {
@@ -24,7 +23,7 @@ export interface PlayerDto {
   isCreator: boolean;
 }
 
-// ✅ FIXED: Match backend response structure
+// Response structure from backend
 export interface CreateGameResponse {
   gameId: number;
   gameName: string;
@@ -49,6 +48,10 @@ export interface JoinGameResponse {
 }
 
 export interface InvitePlayerRequest {
+  email: string;
+}
+
+export interface InvitePlayerByEmailRequest {
   email: string;
 }
 
@@ -98,6 +101,10 @@ interface GamesContextValue {
     gameId: number,
     request: InvitePlayerRequest
   ) => Promise<{ message: string; playerId: number }>;
+  invitePlayerByEmail: (
+    gameId: number,
+    request: InvitePlayerByEmailRequest
+  ) => Promise<{ message: string; playerId: number }>;
   getGameStatus: (gameId: number) => Promise<GameStatusResponse>;
   endGame: (gameId: number) => Promise<EndGameResponse>;
   startGame: (gameId: number) => Promise<StartGameResponse>;
@@ -138,6 +145,16 @@ export function GamesProvider({ children }: { children: React.ReactNode }) {
     >(`/api/Games/${gameId}/invite`, request);
   };
 
+  const invitePlayerByEmail = async (
+    gameId: number,
+    request: InvitePlayerByEmailRequest
+  ): Promise<{ message: string; playerId: number }> => {
+    return transport.post<
+      InvitePlayerByEmailRequest,
+      { message: string; playerId: number }
+    >(`/api/Games/${gameId}/invite-by-email`, request);
+  };
+
   const getGameStatus = async (gameId: number): Promise<GameStatusResponse> => {
     return transport.get<GameStatusResponse>(`/api/Games/${gameId}/status`);
   };
@@ -157,6 +174,7 @@ export function GamesProvider({ children }: { children: React.ReactNode }) {
     createGame,
     joinGame,
     invitePlayer,
+    invitePlayerByEmail,
     getGameStatus,
     endGame,
     startGame,
