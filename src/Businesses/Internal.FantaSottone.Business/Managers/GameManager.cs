@@ -76,6 +76,10 @@ internal sealed class GameManager : IGameManager
     {
         try
         {
+            // Validate at least one invited email is provided (creator + 1 invited = 2 players minimum)
+            if (invitedEmails == null || invitedEmails.Count == 0)
+                return AppResult<(Game, Player, List<string>, List<string>)>.BadRequest("Almeno un altro giocatore deve essere invitato per creare una partita");
+
             // Validate creator user exists
             var creatorUserResult = await _userRepository.GetByIdAsync(creatorUserId, cancellationToken);
             if (creatorUserResult.IsFailure)
@@ -348,6 +352,7 @@ internal sealed class GameManager : IGameManager
     {
         try
         {
+            // Check if all rules have been assigned
             var totalRulesResult = await _ruleRepository.CountByGameIdAsync(gameId, cancellationToken);
             var assignedRulesResult = await _ruleAssignmentRepository.CountByGameIdAsync(gameId, cancellationToken);
 
@@ -363,12 +368,20 @@ internal sealed class GameManager : IGameManager
                 }
             }
 
-            var playersWithLowScoreResult = await _playerRepository.CountPlayersWithScoreLessThanOrEqualToZeroAsync(gameId, cancellationToken);
-
-            if (playersWithLowScoreResult.IsSuccess && playersWithLowScoreResult.Value! >= 3)
+            // Check if all players except one have score <= 0
+            var allPlayersResult = await _playerRepository.GetByGameIdAsync(gameId, cancellationToken);
+            if (allPlayersResult.IsSuccess)
             {
-                _logger.LogInformation("Game {GameId} should end: {Count} players with score <= 0", gameId, playersWithLowScoreResult.Value);
-                return true;
+                var players = allPlayersResult.Value!.ToList();
+                var playersWithPositiveScore = players.Count(p => p.CurrentScore > 0);
+
+                // If only one player has a positive score (or all have <= 0), end the game
+                if (playersWithPositiveScore <= 1)
+                {
+                    _logger.LogInformation("Game {GameId} should end: only {Count} player(s) with positive score",
+                        gameId, playersWithPositiveScore);
+                    return true;
+                }
             }
 
             return false;

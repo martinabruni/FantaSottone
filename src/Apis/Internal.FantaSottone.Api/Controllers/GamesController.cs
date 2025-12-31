@@ -480,6 +480,60 @@ public sealed class GamesController : ControllerBase
     }
 
     /// <summary>
+    /// Deletes a rule (creator only, pre-assignment)
+    /// </summary>
+    [HttpDelete("{gameId}/rules/{ruleId}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteRule(int gameId, int ruleId, CancellationToken cancellationToken)
+    {
+        // Get player from userId + gameId
+        var playerResult = await GetPlayerForGameAsync(gameId, cancellationToken);
+        if (playerResult == null)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "User not authenticated",
+                Detail = "Invalid or missing user ID in token"
+            });
+        }
+
+        if (playerResult.IsFailure)
+        {
+            return StatusCode((int)playerResult.StatusCode, new ProblemDetails
+            {
+                Status = (int)playerResult.StatusCode,
+                Title = playerResult.Errors.FirstOrDefault()?.Message ?? "Player not found in this game",
+                Detail = "You must be a player in this game to delete rules"
+            });
+        }
+
+        var player = playerResult.Value!;
+
+        var result = await _ruleService.DeleteRuleAsync(
+            ruleId,
+            gameId,
+            player.Id,
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return StatusCode((int)result.StatusCode, new ProblemDetails
+            {
+                Status = (int)result.StatusCode,
+                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to delete rule",
+                Type = result.Errors.FirstOrDefault()?.Code
+            });
+        }
+
+        return Ok(new { message = "Rule deleted successfully" });
+    }
+
+    /// <summary>
     /// Gets assignment history for a game
     /// </summary>
     [HttpGet("{gameId}/assignments")]

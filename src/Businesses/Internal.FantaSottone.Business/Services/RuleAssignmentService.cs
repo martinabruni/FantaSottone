@@ -1,5 +1,6 @@
 namespace Internal.FantaSottone.Business.Services;
 
+using Internal.FantaSottone.Domain.Managers;
 using Internal.FantaSottone.Domain.Models;
 using Internal.FantaSottone.Domain.Repositories;
 using Internal.FantaSottone.Domain.Results;
@@ -14,6 +15,7 @@ internal sealed class RuleAssignmentService : IRuleAssignmentService
     private readonly IRuleRepository _ruleRepository;
     private readonly IPlayerRepository _playerRepository;
     private readonly IGameRepository _gameRepository;
+    private readonly IGameManager _gameManager;
     private readonly FantaSottoneContext _context;
     private readonly ILogger<RuleAssignmentService> _logger;
 
@@ -22,6 +24,7 @@ internal sealed class RuleAssignmentService : IRuleAssignmentService
         IRuleRepository ruleRepository,
         IPlayerRepository playerRepository,
         IGameRepository gameRepository,
+        IGameManager gameManager,
         FantaSottoneContext context,
         ILogger<RuleAssignmentService> logger)
     {
@@ -29,6 +32,7 @@ internal sealed class RuleAssignmentService : IRuleAssignmentService
         _ruleRepository = ruleRepository;
         _playerRepository = playerRepository;
         _gameRepository = gameRepository;
+        _gameManager = gameManager;
         _context = context;
         _logger = logger;
     }
@@ -212,6 +216,31 @@ internal sealed class RuleAssignmentService : IRuleAssignmentService
             _logger.LogInformation(
                 "Rule {RuleId} ({RuleName}) assigned to player {PlayerId} in game {GameId}. Score delta: {ScoreDelta}, New score: {NewScore}",
                 ruleId, rule.Name, playerId, gameId, rule.ScoreDelta, player.CurrentScore);
+
+            // 8. Check if game should auto-end after this assignment
+            try
+            {
+                var shouldAutoEnd = await _gameManager.ShouldEndGameAsync(gameId, cancellationToken);
+                if (shouldAutoEnd)
+                {
+                    _logger.LogInformation("Game {GameId} meets auto-end conditions after rule assignment", gameId);
+                    var autoEndResult = await _gameManager.TryAutoEndGameAsync(gameId, cancellationToken);
+                    if (autoEndResult.IsSuccess)
+                    {
+                        _logger.LogInformation("Game {GameId} automatically ended", gameId);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to auto-end game {GameId}: {Error}",
+                            gameId, autoEndResult.Errors.FirstOrDefault()?.Message);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Don't fail the assignment if auto-end fails
+                _logger.LogError(ex, "Error checking/executing auto-end for game {GameId}", gameId);
+            }
 
             return assignResult;
         }

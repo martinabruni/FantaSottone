@@ -145,9 +145,7 @@ public partial class FantaSottoneContext : DbContext
             entity.Property(e => e.Email)
                 .IsRequired()
                 .HasMaxLength(255);
-            entity.Property(e => e.Password)
-                .HasMaxLength(30)
-                .IsFixedLength();
+            entity.Property(e => e.Password).HasMaxLength(30);
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(3)
                 .HasDefaultValueSql("sysutcdatetime()");

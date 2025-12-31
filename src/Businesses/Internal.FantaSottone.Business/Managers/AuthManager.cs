@@ -124,6 +124,112 @@ internal sealed class AuthManager : IAuthManager
         }
     }
 
+    public async Task<AppResult<EmailAuthResponse>> RegisterWithEmailAsync(
+        EmailRegisterRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+                return AppResult<EmailAuthResponse>.BadRequest("Email is required");
+
+            if (string.IsNullOrWhiteSpace(request.Password))
+                return AppResult<EmailAuthResponse>.BadRequest("Password is required");
+
+            // Check if user already exists
+            var existingUserResult = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
+            if (existingUserResult.IsSuccess)
+            {
+                return AppResult<EmailAuthResponse>.BadRequest("User with this email already exists");
+            }
+
+            // Create new user
+            var user = new User
+            {
+                Email = request.Email.Trim(),
+                Password = request.Password.Trim(), // Stored in plain text as requested
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var createResult = await _userRepository.AddAsync(user, cancellationToken);
+            if (createResult.IsFailure)
+            {
+                _logger.LogError("Failed to create user for email {Email}", request.Email);
+                return AppResult<EmailAuthResponse>.InternalServerError("Failed to create user account");
+            }
+
+            user = createResult.Value!;
+            _logger.LogInformation("Created new user {UserId} for email {Email}", user.Id, request.Email);
+
+            // Generate JWT token
+            var token = GenerateUserJwtToken(user);
+
+            var response = new EmailAuthResponse
+            {
+                Token = token,
+                Email = user.Email,
+                UserId = user.Id
+            };
+
+            return AppResult<EmailAuthResponse>.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during email registration");
+            return AppResult<EmailAuthResponse>.InternalServerError($"Registration error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<EmailAuthResponse>> LoginWithEmailAsync(
+        EmailAuthRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+                return AppResult<EmailAuthResponse>.BadRequest("Email is required");
+
+            if (string.IsNullOrWhiteSpace(request.Password))
+                return AppResult<EmailAuthResponse>.BadRequest("Password is required");
+
+            // Get user by email
+            var userResult = await _userRepository.GetByEmailAsync(request.Email.Trim(), cancellationToken);
+            if (userResult.IsFailure)
+            {
+                return AppResult<EmailAuthResponse>.Unauthorized("Invalid email or password");
+            }
+
+            var user = userResult.Value!;
+
+            // Check password (plain text comparison)
+            if (user.Password != request.Password.Trim())
+            {
+                _logger.LogWarning("Failed login attempt for email {Email}", request.Email);
+                return AppResult<EmailAuthResponse>.Unauthorized("Invalid email or password");
+            }
+
+            _logger.LogInformation("User {UserId} logged in with email {Email}", user.Id, user.Email);
+
+            // Generate JWT token
+            var token = GenerateUserJwtToken(user);
+
+            var response = new EmailAuthResponse
+            {
+                Token = token,
+                Email = user.Email,
+                UserId = user.Id
+            };
+
+            return AppResult<EmailAuthResponse>.Success(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during email login");
+            return AppResult<EmailAuthResponse>.InternalServerError($"Login error: {ex.Message}");
+        }
+    }
+
     private string GenerateUserJwtToken(User user)
     {
         var jwtSettings = _configuration.GetSection("Jwt");

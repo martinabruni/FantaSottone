@@ -29,28 +29,14 @@ export function CreateGamePage() {
   const { joinGame } = useGame();
   const { session } = useAuth();
 
-  const isValidEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
   const handleAddEmail = () => {
     const trimmedEmail = emailInput.trim();
 
     if (!trimmedEmail) {
       toast({
         variant: "error",
-        title: "Email vuota",
-        description: "Inserisci un indirizzo email valido",
-      });
-      return;
-    }
-
-    if (!isValidEmail(trimmedEmail)) {
-      toast({
-        variant: "error",
-        title: "Email non valida",
-        description: "Inserisci un indirizzo email nel formato corretto",
+        title: "Username vuoto",
+        description: "Inserisci un username valido",
       });
       return;
     }
@@ -62,7 +48,7 @@ export function CreateGamePage() {
     ) {
       toast({
         variant: "error",
-        title: "Email non valida",
+        title: "Username non valido",
         description: "Non puoi invitare te stesso",
       });
       return;
@@ -71,8 +57,8 @@ export function CreateGamePage() {
     if (invitedEmails.includes(trimmedEmail)) {
       toast({
         variant: "error",
-        title: "Email duplicata",
-        description: "Questa email è già stata aggiunta",
+        title: "Username duplicato",
+        description: "Questo username è già stato aggiunto",
       });
       return;
     }
@@ -199,11 +185,11 @@ export function CreateGamePage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Invita giocatori (opzionale)</Label>
+              <Label>Invita giocatori</Label>
               <div className="flex gap-2">
                 <Input
-                  type="email"
-                  placeholder="email@esempio.com"
+                  type="text"
+                  placeholder="username"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   onKeyPress={(e) => {

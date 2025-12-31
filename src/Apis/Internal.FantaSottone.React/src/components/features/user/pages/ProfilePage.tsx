@@ -12,14 +12,14 @@ import {
 import { useToast } from "@/hooks/useToast";
 import { ArrowLeft, Mail, Calendar } from "lucide-react";
 import { UserProfileDto } from "@/types/user-types";
-import { createTransport } from "@/lib/http/transportFactory";
+import { useUsers } from "@/providers/users/UsersProvider";
 
 export function ProfilePage() {
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const transport = createTransport();
+  const { getUserProfile } = useUsers();
 
   useEffect(() => {
     loadProfile();
@@ -28,9 +28,7 @@ export function ProfilePage() {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const response = await transport.get<{ profile: UserProfileDto }>(
-        "/api/Users/profile"
-      );
+      const response = await getUserProfile();
       setProfile(response.profile);
     } catch (error) {
       toast({

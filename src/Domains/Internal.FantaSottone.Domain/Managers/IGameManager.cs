@@ -8,6 +8,8 @@ using Internal.FantaSottone.Domain.Results;
 /// </summary>
 public interface IGameManager
 {
+    Task<bool> ShouldEndGameAsync(int gameId, CancellationToken cancellationToken = default);
+    Task<AppResult<Game>> TryAutoEndGameAsync(int gameId, CancellationToken cancellationToken = default);
     /// <summary>
     /// Gets all games a user has been invited to
     /// </summary>

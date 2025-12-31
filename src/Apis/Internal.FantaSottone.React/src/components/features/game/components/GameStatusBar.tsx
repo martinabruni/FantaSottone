@@ -1,73 +1,86 @@
-// import { useParams } from "react-router-dom";
-// import { useAssignments } from "@/providers/assignments/AssignmentsProvider";
-// import { usePolling } from "@/hooks/usePolling";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Badge } from "@/components/ui/badge";
-// import { GameStatus } from "@/types/entities";
-// import { Crown } from "lucide-react";
-// import { useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { useLeaderboard } from "@/providers/leaderboard/LeaderboardProvider";
+import { usePolling } from "@/hooks/usePolling";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { GameStatus } from "@/types/entities";
+import { Crown, Trophy } from "lucide-react";
+import { useEffect } from "react";
 
-// interface GameStatusBarProps {
-//   onStatusChange?: (status: GameStatus) => void;
-// }
+interface GameStatusBarProps {
+  onStatusChange?: (status: GameStatus) => void;
+}
 
-// export function GameStatusBar({ onStatusChange }: GameStatusBarProps) {
-//   const { gameId } = useParams<{ gameId: string }>();
-//   const { getGameStatus } = useAssignments();
+export function GameStatusBar({ onStatusChange }: GameStatusBarProps) {
+  const { gameId } = useParams<{ gameId: string }>();
+  const { getLeaderboard } = useLeaderboard();
 
-//   const pollingInterval = parseInt(
-//     import.meta.env.VITE_POLLING_INTERVAL_MS || "3000"
-//   );
+  const pollingInterval = parseInt(
+    import.meta.env.VITE_POLLING_INTERVAL_MS || "3000"
+  );
 
-//   const { data: status } = usePolling(
-//     async () => getGameStatus(parseInt(gameId!)),
-//     {
-//       interval: pollingInterval,
-//       enabled: !!gameId,
-//     }
-//   );
+  const { data: leaderboard } = usePolling(
+    async () => getLeaderboard(parseInt(gameId!)),
+    {
+      interval: pollingInterval,
+      enabled: !!gameId,
+    }
+  );
 
-//   useEffect(() => {
-//     if (status && onStatusChange) {
-//       onStatusChange(status.game.status);
-//     }
-//   }, [status, onStatusChange]);
+  const gameStatus =
+    leaderboard && leaderboard.length > 0
+      ? (leaderboard[0] as any).gameStatus
+      : null;
 
-//   if (!status) return null;
+  useEffect(() => {
+    if (gameStatus && onStatusChange) {
+      onStatusChange(gameStatus);
+    }
+  }, [gameStatus, onStatusChange]);
 
-//   const statusText =
-//     status.game.status === GameStatus.Draft
-//       ? "Bozza"
-//       : status.game.status === GameStatus.Started
-//       ? "In corso"
-//       : "Terminata";
+  if (!leaderboard || leaderboard.length === 0) return null;
 
-//   const statusVariant =
-//     status.game.status === GameStatus.Ended ? "default" : "secondary";
+  const winner = leaderboard[0];
 
-//   return (
-//     <Card>
-//       <CardHeader>
-//         <CardTitle className="flex items-center justify-between">
-//           <span>Stato partita</span>
-//           <Badge variant={statusVariant}>{statusText}</Badge>
-//         </CardTitle>
-//       </CardHeader>
-//       <CardContent>
-//         {status.game.status === GameStatus.Ended && status.winner && (
-//           <div className="flex items-center gap-2 p-4 bg-primary/10 rounded-md">
-//             <Crown className="h-5 w-5 text-primary" />
-//             <div>
-//               <p className="font-semibold">
-//                 Vincitore: {status.winner.username}
-//               </p>
-//               <p className="text-sm text-muted-foreground">
-//                 Punteggio finale: {status.winner.currentScore}
-//               </p>
-//             </div>
-//           </div>
-//         )}
-//       </CardContent>
-//     </Card>
-//   );
-// }
+  const statusText =
+    gameStatus === GameStatus.Draft
+      ? "Bozza"
+      : gameStatus === GameStatus.Started
+      ? "In corso"
+      : "Terminata";
+
+  const statusVariant =
+    gameStatus === GameStatus.Ended ? "default" : "secondary";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <span>Stato partita</span>
+          <Badge variant={statusVariant}>{statusText}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {gameStatus === GameStatus.Ended && winner && (
+          <div className="flex items-center gap-3 p-4 bg-primary/10 rounded-md border border-primary/20">
+            <Crown className="h-6 w-6 text-yellow-500" />
+            <div className="flex-1">
+              <p className="font-semibold text-lg flex items-center gap-2">
+                <Trophy className="h-4 w-4" />
+                Vincitore: {winner.email}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Punteggio finale: {winner.currentScore} punti
+              </p>
+            </div>
+          </div>
+        )}
+        {gameStatus === GameStatus.Started && (
+          <p className="text-sm text-muted-foreground">
+            La partita è in corso. I giocatori possono assegnare le regole.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

@@ -3,7 +3,7 @@
     [Email]     NVARCHAR (255) NOT NULL,
     [CreatedAt] DATETIME2 (3)  DEFAULT (sysutcdatetime()) NOT NULL,
     [UpdatedAt] DATETIME2 (3)  DEFAULT (sysutcdatetime()) NOT NULL,
-    [Password]  NCHAR (30)     NULL,
+    [Password]  NVARCHAR (30)     NULL,
     PRIMARY KEY CLUSTERED ([Id] ASC)
 );
 

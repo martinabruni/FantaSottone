@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_DURATION = 1000;
 
 type ToasterToast = ToastProps & {
   id: string;
@@ -63,7 +63,7 @@ const addToRemoveQueue = (toastId: string) => {
       type: "REMOVE_TOAST",
       toastId: toastId,
     });
-  }, TOAST_REMOVE_DELAY);
+  });
 
   toastTimeouts.set(toastId, timeout);
 };
@@ -150,6 +150,7 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
+      duration: TOAST_DURATION,
       onOpenChange: (open) => {
         if (!open) dismiss();
       },

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LeaderboardTab } from "../components/LeaderboardTab";
 import { RulesTab } from "../components/RulesTab";
 import { EndGameDialog } from "../components/EndGameDialog";
+import { GameStatusBar } from "../components/GameStatusBar";
 import { ActionButton } from "@/components/common/ActionButton";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/useToast";
@@ -112,6 +113,8 @@ export function GamePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      <GameStatusBar onStatusChange={setGameStatus} />
+
       <div className="flex items-center justify-between">
         {canEndGame && (
           <ActionButton

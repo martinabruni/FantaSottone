@@ -6,6 +6,10 @@ import {
   GoogleAuthStrategy,
   GoogleAuthResponse,
 } from "@/lib/auth/GoogleAuthStrategy";
+import {
+  EmailAuthStrategy,
+  EmailAuthResponse,
+} from "@/lib/auth/EmailAuthStrategy";
 import { createTransport } from "@/lib/http/transportFactory";
 import { Role, getPermissions, UserPermissions } from "@/lib/auth/roles";
 
@@ -15,8 +19,15 @@ interface AuthContextValue {
   loading: boolean;
   error: Error | null;
   permissions: UserPermissions;
-  // ❌ RIMOSSO: login tradizionale
   loginWithGoogle: (idToken: string) => Promise<GoogleAuthResponse>;
+  loginWithEmail: (
+    email: string,
+    password: string
+  ) => Promise<EmailAuthResponse>;
+  registerWithEmail: (
+    email: string,
+    password: string
+  ) => Promise<EmailAuthResponse>;
   logout: () => Promise<void>;
 }
 
@@ -41,6 +52,14 @@ function createGoogleAuthStrategy(
   return new GoogleAuthStrategy(transport);
 }
 
+function createEmailAuthStrategy(
+  getToken?: () => string | null
+): EmailAuthStrategy {
+  // Email auth always uses a transport
+  const transport = createTransport(getToken);
+  return new EmailAuthStrategy(transport);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -52,6 +71,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [strategy] = useState<IAuthStrategy>(() => createAuthStrategy());
   const [googleStrategy] = useState<GoogleAuthStrategy>(() =>
     createGoogleAuthStrategy(getToken)
+  );
+  const [emailStrategy] = useState<EmailAuthStrategy>(() =>
+    createEmailAuthStrategy(getToken)
   );
 
   const permissions = session
@@ -90,8 +112,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async (): Promise<void> => {
     await strategy.logout();
     await googleStrategy.logout();
+    await emailStrategy.logout();
     setSession(null);
     setError(null);
+  };
+
+  const loginWithEmail = async (
+    email: string,
+    password: string
+  ): Promise<EmailAuthResponse> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await emailStrategy.login(email, password);
+      // Save session
+      const session: SessionData = {
+        token: response.token,
+        playerId: 0,
+        gameId: 0,
+        email: response.email,
+        role: "player",
+      };
+      localStorage.setItem("google_auth_session", JSON.stringify(session));
+      setSession(session);
+      return response;
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const registerWithEmail = async (
+    email: string,
+    password: string
+  ): Promise<EmailAuthResponse> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await emailStrategy.register(email, password);
+      // Save session
+      const session: SessionData = {
+        token: response.token,
+        playerId: 0,
+        gameId: 0,
+        email: response.email,
+        role: "player",
+      };
+      localStorage.setItem("google_auth_session", JSON.stringify(session));
+      setSession(session);
+      return response;
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const value: AuthContextValue = {
@@ -101,6 +182,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     error,
     permissions,
     loginWithGoogle,
+    loginWithEmail,
+    registerWithEmail,
     logout,
   };
 

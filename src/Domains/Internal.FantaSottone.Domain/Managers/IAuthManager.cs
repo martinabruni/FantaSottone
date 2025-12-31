@@ -15,4 +15,18 @@ public interface IAuthManager
     Task<AppResult<GoogleAuthResponse>> GoogleAuthAsync(
         GoogleAuthRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Registers a new user with email and password
+    /// </summary>
+    Task<AppResult<EmailAuthResponse>> RegisterWithEmailAsync(
+        EmailRegisterRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Authenticates a user with email and password
+    /// </summary>
+    Task<AppResult<EmailAuthResponse>> LoginWithEmailAsync(
+        EmailAuthRequest request,
+        CancellationToken cancellationToken = default);
 }
