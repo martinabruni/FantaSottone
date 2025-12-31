@@ -15,5 +15,7 @@ public partial class UserEntity
 
     public DateTime UpdatedAt { get; set; }
 
+    public string Password { get; set; }
+
     public virtual ICollection<PlayerEntity> PlayerEntity { get; set; } = new List<PlayerEntity>();
 }
