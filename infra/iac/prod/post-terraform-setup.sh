@@ -13,8 +13,8 @@ if [ "$ENVIRONMENT" = "dev" ]; then
     KEY_VAULT_NAME="kv-fantastn-app-dev"
 elif [ "$ENVIRONMENT" = "prod" ]; then
     RESOURCE_GROUP="rg-fantastn-webapp-prod"
-    WEB_API_NAME="api-fantastn-backend-prod"
-    KEY_VAULT_NAME="kv-fantastn-app-prod"
+    WEB_API_NAME="api-fantastn-prod"
+    KEY_VAULT_NAME="kv-fantastn-prod"
 else
     echo "❌ Ambiente non valido: $ENVIRONMENT"
     echo "Uso: ./post-terraform-setup.sh [dev|prod]"
