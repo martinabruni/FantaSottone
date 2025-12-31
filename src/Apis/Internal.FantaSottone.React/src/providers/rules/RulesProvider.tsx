@@ -1,32 +1,64 @@
 import React, { createContext, useContext, useMemo } from "react";
-import {
-  AssignRuleResponse,
-  RuleWithAssignment,
-  UpdateRuleRequest,
-  UpdateRuleResponse,
-  CreateRuleRequest,
-  CreateRuleResponse,
-} from "@/types/dto";
 import { ITransport } from "@/lib/http/Transport";
 import { createTransport } from "@/lib/http/transportFactory";
 import { useAuth } from "../auth/AuthProvider";
 
+// DTOs
+export interface RuleDto {
+  id: number;
+  name: string;
+  ruleType: number;
+  scoreDelta: number;
+}
+
+export interface RuleAssignmentInfoDto {
+  assignedToPlayerId: number;
+  assignedToUsername: string;
+  assignedAt: string;
+}
+
+export interface RuleWithAssignmentDto {
+  rule: RuleDto;
+  assignment: RuleAssignmentInfoDto | null;
+}
+
+export interface AssignmentDto {
+  id: number;
+  ruleId: number;
+  assignedToPlayerId: number;
+  scoreDeltaApplied: number;
+  assignedAt: string;
+}
+
+export interface AssignRuleResponse {
+  assignment: AssignmentDto;
+}
+
+export interface CreateRuleRequest {
+  name: string;
+  ruleType: number;
+  scoreDelta: number;
+}
+
+export interface CreateRuleResponse {
+  rule: RuleDto;
+}
+
+export interface UpdateRuleRequest {
+  name: string;
+  ruleType: number;
+  scoreDelta: number;
+}
+
+export interface UpdateRuleResponse {
+  rule: RuleDto;
+}
+
 interface RulesContextValue {
-  getRules: (gameId: number) => Promise<RuleWithAssignment[]>;
-  assignRule: (
-    gameId: number,
-    ruleId: number,
-    playerId: number
-  ) => Promise<AssignRuleResponse>;
-  updateRule: (
-    gameId: number,
-    ruleId: number,
-    request: UpdateRuleRequest
-  ) => Promise<UpdateRuleResponse>;
-  createRule: (
-    gameId: number,
-    request: CreateRuleRequest
-  ) => Promise<CreateRuleResponse>;
+  getRules: (gameId: number) => Promise<RuleWithAssignmentDto[]>;
+  assignRule: (gameId: number, ruleId: number) => Promise<AssignRuleResponse>;
+  createRule: (gameId: number, request: CreateRuleRequest) => Promise<CreateRuleResponse>;
+  updateRule: (gameId: number, ruleId: number, request: UpdateRuleRequest) => Promise<UpdateRuleResponse>;
   deleteRule: (gameId: number, ruleId: number) => Promise<void>;
 }
 
@@ -39,18 +71,28 @@ export function RulesProvider({ children }: { children: React.ReactNode }) {
     [session]
   );
 
-  const getRules = async (gameId: number): Promise<RuleWithAssignment[]> => {
-    return transport.get<RuleWithAssignment[]>(`/api/games/${gameId}/rules`);
+  const getRules = async (gameId: number): Promise<RuleWithAssignmentDto[]> => {
+    return transport.get<RuleWithAssignmentDto[]>(`/api/Games/${gameId}/rules`);
   };
 
   const assignRule = async (
     gameId: number,
-    ruleId: number,
-    playerId: number
+    ruleId: number
   ): Promise<AssignRuleResponse> => {
-    return transport.post<{ playerId: number }, AssignRuleResponse>(
-      `/api/games/${gameId}/rules/${ruleId}/assign`,
-      { playerId }
+    // Non serve inviare playerId nel body - viene estratto dal token JWT
+    return transport.post<{}, AssignRuleResponse>(
+      `/api/Games/${gameId}/rules/${ruleId}/assign`,
+      {}
+    );
+  };
+
+  const createRule = async (
+    gameId: number,
+    request: CreateRuleRequest
+  ): Promise<CreateRuleResponse> => {
+    return transport.post<CreateRuleRequest, CreateRuleResponse>(
+      `/api/Games/${gameId}/rules`,
+      request
     );
   };
 
@@ -60,33 +102,20 @@ export function RulesProvider({ children }: { children: React.ReactNode }) {
     request: UpdateRuleRequest
   ): Promise<UpdateRuleResponse> => {
     return transport.put<UpdateRuleRequest, UpdateRuleResponse>(
-      `/api/games/${gameId}/rules/${ruleId}`,
+      `/api/Games/${gameId}/rules/${ruleId}`,
       request
     );
   };
 
-  const createRule = async (
-    gameId: number,
-    request: CreateRuleRequest
-  ): Promise<CreateRuleResponse> => {
-    return transport.post<CreateRuleRequest, CreateRuleResponse>(
-      `/api/games/${gameId}/rules`,
-      request
-    );
-  };
-
-  const deleteRule = async (
-    gameId: number,
-    ruleId: number
-  ): Promise<void> => {
-    await transport.delete<void>(`/api/games/${gameId}/rules/${ruleId}`);
+  const deleteRule = async (gameId: number, ruleId: number): Promise<void> => {
+    await transport.delete<void>(`/api/Games/${gameId}/rules/${ruleId}`);
   };
 
   const value: RulesContextValue = {
     getRules,
     assignRule,
-    updateRule,
     createRule,
+    updateRule,
     deleteRule,
   };
 

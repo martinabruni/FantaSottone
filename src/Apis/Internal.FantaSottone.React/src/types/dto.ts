@@ -1,11 +1,6 @@
 import { GameStatus, RuleType } from "./entities";
 
-// Auth DTOs
-
-export interface LoginRequest {
-  username: string;
-  accessCode: string;
-}
+// Auth DTOs - RIMOSSI username e accessCode, ora si usa solo Google OAuth
 
 export interface LoginResponse {
   token: string;
@@ -20,7 +15,7 @@ export interface LoginResponse {
   player: {
     id: number;
     gameId: number;
-    username: string;
+    email: string; // ✅ CAMBIATO: ora si usa email
     isCreator: boolean;
     currentScore: number;
   };
@@ -31,11 +26,8 @@ export interface LoginResponse {
 export interface StartGameRequest {
   name: string;
   initialScore: number;
-  players: Array<{
-    username: string;
-    accessCode: string;
-    isCreator?: boolean;
-  }>;
+  // ✅ RIMOSSO: players non ha più username/accessCode
+  // Ora i giocatori vengono invitati via email separatamente
   rules: Array<{
     name: string;
     ruleType: RuleType;
@@ -45,16 +37,12 @@ export interface StartGameRequest {
 
 export interface StartGameResponse {
   gameId: number;
-  credentials: Array<{
-    username: string;
-    accessCode: string;
-    isCreator: boolean;
-  }>;
+  // ✅ RIMOSSO: credentials non esiste più
 }
 
 export interface LeaderboardEntry {
   id: number;
-  username: string;
+  email: string; // ✅ CAMBIATO: username -> email
   currentScore: number;
   isCreator: boolean;
 }
@@ -69,7 +57,7 @@ export interface RuleWithAssignment {
   assignment: {
     ruleAssignmentId: number;
     assignedToPlayerId: number;
-    assignedToUsername: string;
+    assignedToEmail: string; // ✅ CAMBIATO: assignedToUsername -> assignedToEmail
     assignedAt: string;
   } | null;
 }
@@ -100,7 +88,7 @@ export interface GameStatusResponse {
   };
   winner: {
     id: number;
-    username: string;
+    email: string; // ✅ CAMBIATO: username -> email
     currentScore: number;
   } | null;
 }
@@ -110,7 +98,7 @@ export interface AssignmentHistoryEntry {
   ruleId: number;
   ruleName: string;
   assignedToPlayerId: number;
-  assignedToUsername: string;
+  assignedToEmail: string; // ✅ CAMBIATO: assignedToUsername -> assignedToEmail
   scoreDeltaApplied: number;
   assignedAt: string;
 }
@@ -126,12 +114,12 @@ export interface EndGameResponse {
   };
   winner: {
     id: number;
-    username: string;
+    email: string; // ✅ CAMBIATO: username -> email
     currentScore: number;
   };
   leaderboard: Array<{
     id: number;
-    username: string;
+    email: string; // ✅ CAMBIATO: username -> email
     currentScore: number;
     isCreator: boolean;
   }>;

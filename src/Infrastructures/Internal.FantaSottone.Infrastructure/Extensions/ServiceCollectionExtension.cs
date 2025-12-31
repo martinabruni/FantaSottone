@@ -15,6 +15,7 @@ public static class ServiceCollectionExtension
             options.UseSqlServer(connectionString));
 
         // Repositories
+        services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IGameRepository, GameRepository>();
         services.AddScoped<IPlayerRepository, PlayerRepository>();
         services.AddScoped<IRuleRepository, RuleRepository>();

@@ -115,7 +115,7 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
         {
             var keyValue = (TKey)(object)entity.Id;
 
-            // Trova l'entità esistente (viene tracciata automaticamente)
+            // Trova l'entitï¿½ esistente (viene tracciata automaticamente)
             var existingEntity = await _dbSet.FindAsync([keyValue], cancellationToken);
 
             if (existingEntity == null)
@@ -124,7 +124,7 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
                 return AppResult<TDomainEntity>.NotFound($"{typeof(TDomainEntity).Name} with ID {keyValue} not found");
             }
 
-            // Mappa i nuovi valori sull'entità esistente (già tracciata)
+            // Mappa i nuovi valori sull'entitï¿½ esistente (giï¿½ tracciata)
             var dbEntity = entity.Adapt<TDbEntity>();
             _context.Entry(existingEntity).CurrentValues.SetValues(dbEntity);
 
@@ -154,7 +154,7 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
 
     private async Task DetachIfTrackedAsync(TKey id, CancellationToken cancellationToken)
     {
-        // 1) prova a prendere l'entità già tracciata (Local)
+        // 1) prova a prendere l'entitï¿½ giï¿½ tracciata (Local)
         var trackedLocal = _context.Set<TDbEntity>().Local
             .FirstOrDefault(e => Equals(EF.Property<TKey>(e, "Id"), id));
 
@@ -168,8 +168,8 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
             return;
         }
 
-        // 2) se non è in Local, Find può attaccarla al contesto se esiste in DB
-        //    Serve solo se in qualche punto precedente (stessa UoW) hai già fatto Find/Attach in altro modo.
+        // 2) se non ï¿½ in Local, Find puï¿½ attaccarla al contesto se esiste in DB
+        //    Serve solo se in qualche punto precedente (stessa UoW) hai giï¿½ fatto Find/Attach in altro modo.
         var tracked = await _context.Set<TDbEntity>().FindAsync(new object[] { id }, cancellationToken);
         if (tracked is not null)
         {
@@ -211,5 +211,10 @@ internal abstract class BaseRepository<TDomainEntity, TDbEntity, TKey> : IReposi
             _logger.LogError(ex, "Error deleting {EntityType} with ID {Id}", typeof(TDomainEntity).Name, entity.Id);
             return AppResult.InternalServerError($"Error deleting entity: {ex.Message}");
         }
+    }
+
+    public Task<AppResult> DeleteAsync(TKey key, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
     }
 }

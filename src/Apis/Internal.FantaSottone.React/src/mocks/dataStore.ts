@@ -38,12 +38,11 @@ export class DataStore {
     };
     this.games.set(game.Id, game);
 
-    // Create test players
+    // Create test players con email
     const player1: PlayerEntity = {
       Id: this.nextPlayerId++,
       GameId: game.Id,
-      Username: "test1",
-      AccessCode: "code1",
+      Email: "test1@example.com", // ✅ CAMBIATO: Username -> Email
       IsCreator: true,
       CurrentScore: 100,
       CreatedAt: new Date().toISOString(),
@@ -54,8 +53,7 @@ export class DataStore {
     const player2: PlayerEntity = {
       Id: this.nextPlayerId++,
       GameId: game.Id,
-      Username: "test2",
-      AccessCode: "code2",
+      Email: "test2@example.com", // ✅ CAMBIATO: Username -> Email
       IsCreator: false,
       CurrentScore: 100,
       CreatedAt: new Date().toISOString(),
@@ -66,8 +64,7 @@ export class DataStore {
     const player3: PlayerEntity = {
       Id: this.nextPlayerId++,
       GameId: game.Id,
-      Username: "test3",
-      AccessCode: "code3",
+      Email: "test3@example.com", // ✅ CAMBIATO: Username -> Email
       IsCreator: false,
       CurrentScore: 100,
       CreatedAt: new Date().toISOString(),
@@ -142,9 +139,9 @@ export class DataStore {
     return this.players.get(id);
   }
 
-  getPlayerByUsername(username: string): PlayerEntity | undefined {
+  getPlayerByEmail(email: string): PlayerEntity | undefined {
     return Array.from(this.players.values()).find(
-      (p) => p.Username === username
+      (p) => p.Email === email
     );
   }
 

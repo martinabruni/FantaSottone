@@ -2,6 +2,7 @@ import { useParams } from "react-router-dom";
 import { useRules } from "@/providers/rules/RulesProvider";
 import { usePolling } from "@/hooks/usePolling";
 import { useAuth } from "@/providers/auth/AuthProvider";
+import { useGame } from "@/providers/games/GameProvider";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -24,6 +25,7 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
   const { getRules, assignRule, updateRule, createRule, deleteRule } =
     useRules();
   const { session } = useAuth();
+  const { currentPlayer } = useGame();
   const { toast } = useToast();
   const [assigning, setAssigning] = useState<number | null>(null);
   const [editingRule, setEditingRule] = useState<{
@@ -53,7 +55,7 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
     setAssigning(ruleId);
 
     try {
-      await assignRule(parseInt(gameId), ruleId, session.playerId);
+      await assignRule(parseInt(gameId), ruleId);
 
       toast({
         variant: "success",
@@ -182,12 +184,16 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
     return <LoadingState message="Caricamento regole..." />;
   if (error) return <ErrorState message={error.message} onRetry={refetch} />;
 
-  const isCreator = session?.role === "creator";
+  // ✅ FIXED: Use currentPlayer.isCreator instead of session.role
+  const isCreator = currentPlayer?.isCreator ?? false;
   const isGameEnded = gameStatus === GameStatus.Ended;
+  const isGameDraft = gameStatus === GameStatus.Draft;
+  const isGameStarted = gameStatus === GameStatus.Started;
 
   return (
     <>
       <div className="space-y-4">
+        {/* Creator can create rules in Draft state, or during Started state */}
         {isCreator && !isGameEnded && (
           <div className="flex justify-end">
             <ActionButton
@@ -201,6 +207,15 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
           </div>
         )}
 
+        {isGameDraft && !isCreator && (
+          <div className="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-yellow-800">
+              La partita non è ancora iniziata. Le regole saranno disponibili
+              una volta avviata dal creatore.
+            </p>
+          </div>
+        )}
+
         {!rules || rules.length === 0 ? (
           <EmptyState
             title="Nessuna regola"
@@ -210,8 +225,11 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
           rules.map(({ rule, assignment }) => {
             const isAssigned = !!assignment;
             const isAssignedToMe =
-              assignment?.assignedToPlayerId === session?.playerId;
-            const canAssign = !isAssigned && !assigning;
+              assignment?.assignedToPlayerId === currentPlayer?.playerId;
+            // Rules can only be assigned when game is Started
+            const canAssign = isGameStarted && !isAssigned && !assigning;
+            // In Draft: creator can edit/delete all rules
+            // In Started: creator can edit/delete only unassigned rules
             const canEdit = isCreator && !isAssigned && !isGameEnded;
             const canDelete = isCreator && !isAssigned && !isGameEnded;
 
@@ -240,35 +258,20 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
                     </Badge>
                   </div>
 
-                  {isAssigned && assignment && (
+                  {isAssigned ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>
-                        Assegnata a{" "}
-                        <strong>{assignment.assignedToUsername}</strong>
-                      </span>
-                      <Clock className="h-3 w-3 ml-2" />
-                      <span>
-                        {new Date(assignment.assignedAt).toLocaleString(
-                          "it-IT"
-                        )}
-                      </span>
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span>Assegnata a: {assignment.assignedAt}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>In attesa di assegnazione</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex gap-2">
-                  {canDelete && (
-                    <ActionButton
-                      actionType="error"
-                      size="sm"
-                      onClick={() => handleDeleteRule(rule.id)}
-                      disabled={deletingRule === rule.id}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </ActionButton>
-                  )}
-
+                <div className="flex items-center gap-2">
                   {canEdit && (
                     <ActionButton
                       actionType="warning"
@@ -288,20 +291,34 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
                     </ActionButton>
                   )}
 
-                  <ActionButton
-                    actionType={isAssignedToMe ? "info" : "success"}
-                    onClick={() => handleAssign(rule.id)}
-                    disabled={!canAssign || assigning === rule.id}
-                    size="sm"
-                  >
-                    {assigning === rule.id
-                      ? "Assegnando..."
-                      : isAssignedToMe
-                      ? "Assegnata a te"
-                      : isAssigned
-                      ? "Assegnata"
-                      : "Assegna a me"}
-                  </ActionButton>
+                  {canDelete && (
+                    <ActionButton
+                      actionType="error"
+                      size="sm"
+                      onClick={() => handleDeleteRule(rule.id)}
+                      disabled={deletingRule === rule.id}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </ActionButton>
+                  )}
+
+                  {/* Only show assign button when game is started or ended */}
+                  {!isGameDraft && (
+                    <ActionButton
+                      onClick={() => handleAssign(rule.id)}
+                      disabled={!canAssign || assigning === rule.id}
+                    >
+                      {assigning === rule.id
+                        ? "Assegnando..."
+                        : isAssignedToMe
+                        ? "Assegnata a te"
+                        : isAssigned
+                        ? "Assegnata"
+                        : isGameEnded
+                        ? "Partita terminata"
+                        : "Assegna a me"}
+                    </ActionButton>
+                  )}
                 </div>
               </div>
             );

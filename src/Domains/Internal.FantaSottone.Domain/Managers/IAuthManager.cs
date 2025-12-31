@@ -1,5 +1,6 @@
 namespace Internal.FantaSottone.Domain.Managers;
 
+using Internal.FantaSottone.Domain.Dtos;
 using Internal.FantaSottone.Domain.Results;
 
 /// <summary>
@@ -8,10 +9,24 @@ using Internal.FantaSottone.Domain.Results;
 public interface IAuthManager
 {
     /// <summary>
-    /// Authenticates a player and returns JWT token with game/player info
+    /// Authenticates a user with Google OAuth
+    /// Creates user on first login
     /// </summary>
-    Task<AppResult<LoginResult>> LoginAsync(
-        string username,
-        string accessCode,
+    Task<AppResult<GoogleAuthResponse>> GoogleAuthAsync(
+        GoogleAuthRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Registers a new user with email and password
+    /// </summary>
+    Task<AppResult<EmailAuthResponse>> RegisterWithEmailAsync(
+        EmailRegisterRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Authenticates a user with email and password
+    /// </summary>
+    Task<AppResult<EmailAuthResponse>> LoginWithEmailAsync(
+        EmailAuthRequest request,
         CancellationToken cancellationToken = default);
 }

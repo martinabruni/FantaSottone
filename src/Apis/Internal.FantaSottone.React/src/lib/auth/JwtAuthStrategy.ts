@@ -1,20 +1,13 @@
-import { LoginRequest, LoginResponse } from "@/types/dto";
+import { LoginResponse } from "@/types/dto";
 import { IAuthStrategy, SessionData } from "./AuthStrategy";
 import { getRoleFromIsCreator } from "./roles";
-import { ITransport } from "../http/Transport";
 
 const SESSION_KEY = "fantaSottone_session";
 
 export class JwtAuthStrategy implements IAuthStrategy {
-  constructor(private transport: ITransport) {}
+  constructor() {}
 
-  async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await this.transport.post<LoginRequest, LoginResponse>(
-      "/api/auth/login",
-      credentials
-    );
-    return response;
-  }
+  // ❌ RIMOSSO: metodo login (ora si usa solo Google OAuth)
 
   async logout(): Promise<void> {
     this.clearSession();
@@ -36,7 +29,7 @@ export class JwtAuthStrategy implements IAuthStrategy {
       token: response.token,
       playerId: response.player.id,
       gameId: response.player.gameId,
-      username: response.player.username,
+      email: response.player.email, // ✅ CAMBIATO: username -> email
       role: getRoleFromIsCreator(response.player.isCreator),
     };
 

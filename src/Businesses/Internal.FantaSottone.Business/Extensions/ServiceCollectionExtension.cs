@@ -18,7 +18,7 @@ public static class ServiceCollectionExtension
         services.AddScoped<RuleAssignmentValidator>();
 
         // Services
-        services.AddScoped<IGameService, GameService>();
+        services.AddScoped<IUserService, UserService>();
         services.AddScoped<IPlayerService, PlayerService>();
         services.AddScoped<IRuleService, RuleService>();
         services.AddScoped<IRuleAssignmentService, RuleAssignmentService>();

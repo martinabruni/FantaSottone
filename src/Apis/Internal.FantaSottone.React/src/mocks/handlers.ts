@@ -3,10 +3,7 @@ import {
   AssignRuleResponse,
   GameStatusResponse,
   LeaderboardEntry,
-  LoginRequest,
-  LoginResponse,
   RuleWithAssignment,
-  StartGameRequest,
   StartGameResponse,
   EndGameResponse,
   UpdateRuleRequest,
@@ -15,140 +12,25 @@ import {
   CreateRuleResponse,
 } from "@/types/dto";
 import { dataStore } from "./dataStore";
-import {
-  ConflictError,
-  NotFoundError,
-  UnauthorizedError,
-} from "@/lib/http/errors";
+import { ConflictError, NotFoundError } from "@/lib/http/errors";
 import { GameStatus } from "@/types/entities";
 
 // Mock API handlers that simulate backend responses
 
 export const handlers = {
-  // Auth handlers
-  login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    const player = dataStore.getPlayerByUsername(credentials.username);
-    if (!player || player.AccessCode !== credentials.accessCode) {
-      throw new UnauthorizedError("Invalid credentials");
-    }
-
-    const game = dataStore.getGame(player.GameId);
-    if (!game) {
-      throw new NotFoundError("Game not found");
-    }
-
-    return {
-      token: `mock-token-${player.Id}-${Date.now()}`,
-      game: {
-        id: game.Id,
-        name: game.Name,
-        initialScore: game.InitialScore,
-        status: game.Status,
-        creatorPlayerId: game.CreatorPlayerId,
-        winnerPlayerId: game.WinnerPlayerId,
-      },
-      player: {
-        id: player.Id,
-        gameId: player.GameId,
-        username: player.Username,
-        isCreator: player.IsCreator,
-        currentScore: player.CurrentScore,
-      },
-    };
-  },
+  // ❌ RIMOSSO: Auth handlers tradizionali (login con username/accessCode)
+  // Ora l'autenticazione funziona solo tramite Google OAuth
 
   // Game handlers
-  // src/Apis/Internal.FantaSottone.React/src/mocks/handlers.ts
-  // (Modifico solo la funzione startGame)
-
-  startGame: async (request: StartGameRequest): Promise<StartGameResponse> => {
+  // ⚠️ DEPRECATO: startGame non è più usato con il nuovo sistema
+  // I giochi vengono creati tramite createGame con inviti via email
+  startGame: async (): Promise<StartGameResponse> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // Step 1: Validate - creator exists
-    const creatorData = request.players.find((p) => p.isCreator);
-    if (!creatorData) {
-      throw new Error("At least one player must be marked as creator");
-    }
-
-    // FEATURE 1: Validazione minimo 2 giocatori (1 creatore + 1 normale)
-    const creatorCount = request.players.filter((p) => p.isCreator).length;
-    const normalPlayerCount = request.players.filter(
-      (p) => !p.isCreator
-    ).length;
-
-    if (creatorCount === 0) {
-      throw new Error("At least one creator is required");
-    }
-
-    if (normalPlayerCount === 0) {
-      throw new Error("At least one normal player (non-creator) is required");
-    }
-
-    // Step 2: Create creator player first
-    const creatorPlayer = dataStore.createPlayer({
-      GameId: 0, // Temporary
-      Username: creatorData.username,
-      AccessCode: creatorData.accessCode,
-      IsCreator: true,
-      CurrentScore: request.initialScore,
-    });
-
-    // Step 3: Create game
-    const game = dataStore.createGame({
-      Name: request.name,
-      InitialScore: request.initialScore,
-      Status: GameStatus.Started,
-      CreatorPlayerId: creatorPlayer.Id,
-      WinnerPlayerId: null,
-    });
-
-    // Step 4: Update creator with gameId
-    creatorPlayer.GameId = game.Id;
-    dataStore.updatePlayer(creatorPlayer.Id, { GameId: game.Id });
-
-    // Step 5: Create other players
-    const credentials: StartGameResponse["credentials"] = [
-      {
-        username: creatorPlayer.Username,
-        accessCode: creatorPlayer.AccessCode,
-        isCreator: true,
-      },
-    ];
-
-    request.players
-      .filter((p) => !p.isCreator)
-      .forEach((p) => {
-        const player = dataStore.createPlayer({
-          GameId: game.Id,
-          Username: p.username,
-          AccessCode: p.accessCode,
-          IsCreator: false,
-          CurrentScore: request.initialScore,
-        });
-
-        credentials.push({
-          username: player.Username,
-          accessCode: player.AccessCode,
-          isCreator: false,
-        });
-      });
-
-    // Step 6: Create rules
-    request.rules.forEach((r) => {
-      dataStore.createRule({
-        GameId: game.Id,
-        Name: r.name,
-        RuleType: r.ruleType,
-        ScoreDelta: r.scoreDelta,
-      });
-    });
-
-    return {
-      gameId: game.Id,
-      credentials,
-    };
+    // Questo metodo è deprecato ma mantenuto per compatibilità
+    throw new Error(
+      "StartGame is deprecated. Use CreateGame endpoint with email invites instead."
+    );
   },
 
   getLeaderboard: async (gameId: number): Promise<LeaderboardEntry[]> => {
@@ -162,7 +44,7 @@ export const handlers = {
     return players
       .map((p) => ({
         id: p.Id,
-        username: p.Username,
+        email: p.Email || `player${p.Id}@example.com`, // ✅ CAMBIATO: username -> email
         currentScore: p.CurrentScore,
         isCreator: p.IsCreator,
       }))
@@ -192,7 +74,9 @@ export const handlers = {
         assignmentData = {
           ruleAssignmentId: assignment.Id,
           assignedToPlayerId: assignment.AssignedToPlayerId,
-          assignedToUsername: assignedPlayer?.Username ?? "Unknown",
+          assignedToEmail:
+            assignedPlayer?.Email ||
+            `player${assignment.AssignedToPlayerId}@example.com`, // ✅ CAMBIATO
           assignedAt: assignment.AssignedAt,
         };
       }
@@ -355,7 +239,7 @@ export const handlers = {
       if (winnerPlayer) {
         winner = {
           id: winnerPlayer.Id,
-          username: winnerPlayer.Username,
+          email: winnerPlayer.Email || `player${winnerPlayer.Id}@example.com`, // ✅ CAMBIATO
           currentScore: winnerPlayer.CurrentScore,
         };
       }
@@ -385,7 +269,8 @@ export const handlers = {
         ruleId: a.RuleId,
         ruleName: rule?.Name ?? "Unknown",
         assignedToPlayerId: a.AssignedToPlayerId,
-        assignedToUsername: player?.Username ?? "Unknown",
+        assignedToEmail:
+          player?.Email || `player${a.AssignedToPlayerId}@example.com`, // ✅ CAMBIATO
         scoreDeltaApplied: a.ScoreDeltaApplied,
         assignedAt: a.AssignedAt,
       };
@@ -429,12 +314,12 @@ export const handlers = {
       },
       winner: {
         id: winner.Id,
-        username: winner.Username,
+        email: winner.Email || `player${winner.Id}@example.com`, // ✅ CAMBIATO
         currentScore: winner.CurrentScore,
       },
       leaderboard: sortedPlayers.map((p) => ({
         id: p.Id,
-        username: p.Username,
+        email: p.Email || `player${p.Id}@example.com`, // ✅ CAMBIATO
         currentScore: p.CurrentScore,
         isCreator: p.IsCreator,
       })),

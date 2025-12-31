@@ -14,8 +14,8 @@ export interface GameEntity {
 export interface PlayerEntity {
   Id: number;
   GameId: number;
-  Username: string;
-  AccessCode: string;
+  Email: string; // ✅ CAMBIATO: Username -> Email
+  // ❌ RIMOSSO: AccessCode (non più necessario)
   IsCreator: boolean;
   CurrentScore: number;
   CreatedAt: string; // ISO date

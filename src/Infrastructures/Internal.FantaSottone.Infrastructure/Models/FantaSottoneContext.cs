@@ -21,23 +21,27 @@ public partial class FantaSottoneContext : DbContext
 
     public virtual DbSet<RuleEntity> RuleEntity { get; set; }
 
+    public virtual DbSet<UserEntity> UserEntity { get; set; }
+
+    public virtual DbSet<vPlayerGameContext> vPlayerGameContext { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<GameEntity>(entity =>
         {
             entity.HasIndex(e => e.Status, "IX_GameEntity_Status");
 
+            entity.HasIndex(e => e.UpdatedAt, "IX_GameEntity_UpdatedAt");
+
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(3)
-                .HasDefaultValueSql("(sysutcdatetime())")
-                .HasAnnotation("Relational:DefaultConstraintName", "DF_GameEntity_CreatedAt");
+                .HasDefaultValueSql("sysutcdatetime()");
             entity.Property(e => e.Name)
                 .IsRequired()
                 .HasMaxLength(100);
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(3)
-                .HasDefaultValueSql("(sysutcdatetime())")
-                .HasAnnotation("Relational:DefaultConstraintName", "DF_GameEntity_UpdatedAt");
+                .HasDefaultValueSql("sysutcdatetime()");
 
             entity.HasOne(d => d.CreatorPlayer).WithMany(p => p.GameEntityCreatorPlayer)
                 .HasForeignKey(d => d.CreatorPlayerId)
@@ -50,37 +54,36 @@ public partial class FantaSottoneContext : DbContext
 
         modelBuilder.Entity<PlayerEntity>(entity =>
         {
-            entity.HasIndex(e => new { e.GameId, e.CurrentScore }, "IX_PlayerEntity_GameId_CurrentScore").IsDescending(false, true);
+            entity.HasIndex(e => new { e.GameId, e.CurrentScore }, "IX_PlayerEntity_GameId_CurrentScore");
 
-            entity.HasIndex(e => new { e.GameId, e.AccessCode }, "UX_PlayerEntity_GameId_AccessCode").IsUnique();
+            entity.HasIndex(e => e.UserId, "IX_PlayerEntity_UserId");
 
-            entity.HasIndex(e => new { e.GameId, e.Username }, "UX_PlayerEntity_GameId_Username").IsUnique();
+            entity.HasIndex(e => new { e.GameId, e.UserId }, "UX_PlayerEntity_GameId_UserId_NotNull")
+                .IsUnique()
+                .HasFilter("([UserId] IS NOT NULL)");
 
-            entity.Property(e => e.AccessCode)
-                .IsRequired()
-                .HasMaxLength(32);
+            entity.Property(e => e.AccessCode).HasMaxLength(32);
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(3)
-                .HasDefaultValueSql("(sysutcdatetime())")
-                .HasAnnotation("Relational:DefaultConstraintName", "DF_PlayerEntity_CreatedAt");
-            entity.Property(e => e.IsCreator).HasAnnotation("Relational:DefaultConstraintName", "DF_PlayerEntity_IsCreator");
+                .HasDefaultValueSql("sysutcdatetime()");
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(3)
-                .HasDefaultValueSql("(sysutcdatetime())")
-                .HasAnnotation("Relational:DefaultConstraintName", "DF_PlayerEntity_UpdatedAt");
-            entity.Property(e => e.Username)
-                .IsRequired()
-                .HasMaxLength(50);
+                .HasDefaultValueSql("sysutcdatetime()");
+            entity.Property(e => e.Username).HasMaxLength(30);
 
             entity.HasOne(d => d.Game).WithMany(p => p.PlayerEntity)
                 .HasForeignKey(d => d.GameId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_PlayerEntity_GameEntity");
+
+            entity.HasOne(d => d.User).WithMany(p => p.PlayerEntity)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("FK_PlayerEntity_UserEntity");
         });
 
         modelBuilder.Entity<RuleAssignmentEntity>(entity =>
         {
-            entity.HasIndex(e => new { e.GameId, e.AssignedAt }, "IX_RuleAssignmentEntity_GameId_AssignedAt").IsDescending(false, true);
+            entity.HasIndex(e => new { e.GameId, e.AssignedAt }, "IX_RuleAssignmentEntity_GameId_AssignedAt");
 
             entity.HasIndex(e => new { e.GameId, e.RuleId }, "IX_RuleAssignmentEntity_GameId_RuleId");
 
@@ -88,16 +91,13 @@ public partial class FantaSottoneContext : DbContext
 
             entity.Property(e => e.AssignedAt)
                 .HasPrecision(3)
-                .HasDefaultValueSql("(sysutcdatetime())")
-                .HasAnnotation("Relational:DefaultConstraintName", "DF_RuleAssignmentEntity_AssignedAt");
+                .HasDefaultValueSql("sysutcdatetime()");
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(3)
-                .HasDefaultValueSql("(sysutcdatetime())")
-                .HasAnnotation("Relational:DefaultConstraintName", "DF_RuleAssignmentEntity_CreatedAt");
+                .HasDefaultValueSql("sysutcdatetime()");
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(3)
-                .HasDefaultValueSql("(sysutcdatetime())")
-                .HasAnnotation("Relational:DefaultConstraintName", "DF_RuleAssignmentEntity_UpdatedAt");
+                .HasDefaultValueSql("sysutcdatetime()");
 
             entity.HasOne(d => d.AssignedToPlayer).WithMany(p => p.RuleAssignmentEntity)
                 .HasForeignKey(d => d.AssignedToPlayerId)
@@ -122,19 +122,47 @@ public partial class FantaSottoneContext : DbContext
 
             entity.Property(e => e.CreatedAt)
                 .HasPrecision(3)
-                .HasDefaultValueSql("(sysutcdatetime())")
-                .HasAnnotation("Relational:DefaultConstraintName", "DF_RuleEntity_CreatedAt");
+                .HasDefaultValueSql("sysutcdatetime()");
             entity.Property(e => e.Name)
                 .IsRequired()
                 .HasMaxLength(100);
             entity.Property(e => e.UpdatedAt)
                 .HasPrecision(3)
-                .HasDefaultValueSql("(sysutcdatetime())")
-                .HasAnnotation("Relational:DefaultConstraintName", "DF_RuleEntity_UpdatedAt");
+                .HasDefaultValueSql("sysutcdatetime()");
 
             entity.HasOne(d => d.Game).WithMany(p => p.RuleEntity)
                 .HasForeignKey(d => d.GameId)
                 .HasConstraintName("FK_RuleEntity_GameEntity");
+        });
+
+        modelBuilder.Entity<UserEntity>(entity =>
+        {
+            entity.HasIndex(e => e.Email, "UX_UserEntity_Email").IsUnique();
+
+            entity.Property(e => e.CreatedAt)
+                .HasPrecision(3)
+                .HasDefaultValueSql("sysutcdatetime()");
+            entity.Property(e => e.Email)
+                .IsRequired()
+                .HasMaxLength(255);
+            entity.Property(e => e.Password).HasMaxLength(30);
+            entity.Property(e => e.UpdatedAt)
+                .HasPrecision(3)
+                .HasDefaultValueSql("sysutcdatetime()");
+        });
+
+        modelBuilder.Entity<vPlayerGameContext>(entity =>
+        {
+            entity
+                .HasNoKey()
+                .ToView("vPlayerGameContext");
+
+            entity.Property(e => e.Email)
+                .IsRequired()
+                .HasMaxLength(255);
+            entity.Property(e => e.GameName)
+                .IsRequired()
+                .HasMaxLength(100);
         });
 
         OnModelCreatingPartial(modelBuilder);
