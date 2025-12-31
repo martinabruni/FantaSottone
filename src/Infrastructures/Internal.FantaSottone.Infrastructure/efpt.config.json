@@ -36,7 +36,7 @@
          "ObjectType": 0
       },
       {
-         "Name": "[dbo].[vw_PlayerGameContext]",
+         "Name": "[dbo].[vPlayerGameContext]",
          "ObjectType": 3
       }
    ],

@@ -1,4 +1,4 @@
-﻿CREATE VIEW [dbo].[vw_PlayerGameContext]
+﻿create VIEW [dbo].[vPlayerGameContext]
 AS
 SELECT 
     u.Id AS UserId,

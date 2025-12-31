@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace Internal.FantaSottone.Infrastructure.Models;
 
-public partial class vw_PlayerGameContext
+public partial class vPlayerGameContext
 {
     public int UserId { get; set; }
 
