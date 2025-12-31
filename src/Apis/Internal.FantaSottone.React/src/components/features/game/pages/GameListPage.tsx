@@ -19,7 +19,7 @@ export function GameListPage() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   // FIXED: Use useUsers() hook instead of creating transport directly
   const { getUserGames } = useUsers();
 
@@ -46,9 +46,11 @@ export function GameListPage() {
 
   const getStatusBadge = (status: number) => {
     switch (status) {
-      case 0: // Started
+      case 1: // Draft
+        return <Badge variant="outline">Bozza</Badge>;
+      case 2: // Started
         return <Badge variant="default">In corso</Badge>;
-      case 1: // Ended
+      case 3: // Ended
         return <Badge variant="secondary">Terminata</Badge>;
       default:
         return <Badge variant="outline">Sconosciuto</Badge>;
