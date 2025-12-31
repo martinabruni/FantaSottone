@@ -81,7 +81,10 @@ internal sealed class PlayerRepository : BaseRepository<Player, PlayerEntity, in
     {
         try
         {
-            var entity = await _context.vPlayerGameContext
+            // FIX: Query PlayerEntity directly instead of the view to get proper mapping
+            // and include User for email information
+            var entity = await _context.PlayerEntity
+                .Include(p => p.User)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.GameId == gameId && p.UserId == userId, cancellationToken);
 
@@ -91,6 +94,7 @@ internal sealed class PlayerRepository : BaseRepository<Player, PlayerEntity, in
                 return AppResult<Player>.NotFound($"Player not found in this game");
             }
 
+            // Use Mapster for consistent mapping from PlayerEntity to Player
             var domainEntity = entity.Adapt<Player>();
             return AppResult<Player>.Success(domainEntity);
         }
