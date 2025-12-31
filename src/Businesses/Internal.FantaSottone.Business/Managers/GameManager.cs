@@ -271,7 +271,10 @@ internal sealed class GameManager : IGameManager
         }
     }
 
-    public async Task<AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>> EndGameAsync(int gameId, int creatorPlayerId, CancellationToken cancellationToken = default)
+    public async Task<AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>> EndGameAsync(
+        int gameId,
+        int requestingUserId,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -287,9 +290,21 @@ internal sealed class GameManager : IGameManager
                 return AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>.BadRequest("Game has already ended");
             }
 
-            if (game.CreatorPlayerId != creatorPlayerId)
+            // FIX: Get the player for the requesting user in this game
+            var requestingPlayerResult = await _playerRepository.GetByGameAndUserAsync(gameId, requestingUserId, cancellationToken);
+            if (requestingPlayerResult.IsFailure)
             {
-                _logger.LogWarning("Player {PlayerId} attempted to end game but is not creator", creatorPlayerId);
+                _logger.LogWarning("User {UserId} attempted to end game {GameId} but is not a player", requestingUserId, gameId);
+                return AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>.Forbidden("You are not a player in this game");
+            }
+
+            var requestingPlayer = requestingPlayerResult.Value!;
+
+            // FIX: Compare player IDs correctly
+            if (game.CreatorPlayerId != requestingPlayer.Id)
+            {
+                _logger.LogWarning("Player {PlayerId} (User {UserId}) attempted to end game but is not creator",
+                    requestingPlayer.Id, requestingUserId);
                 return AppResult<(Game game, Player winner, IEnumerable<Player> leaderboard)>.Forbidden("Only the game creator can end the game");
             }
 
@@ -311,7 +326,8 @@ internal sealed class GameManager : IGameManager
             game.WinnerPlayerId = winner.Id;
             game.UpdatedAt = DateTime.UtcNow;
 
-            _logger.LogInformation("Game {GameId} ended, winner is player {PlayerId}", gameId, winner.Id);
+            _logger.LogInformation("Game {GameId} ended by user {UserId}, winner is player {PlayerId}",
+                gameId, requestingUserId, winner.Id);
             var result = await _gameRepository.UpdateAsync(game, cancellationToken);
             if (result.IsFailure)
             {

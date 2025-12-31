@@ -81,8 +81,7 @@ internal sealed class PlayerRepository : BaseRepository<Player, PlayerEntity, in
     {
         try
         {
-            var entity = await _context.PlayerEntity
-                .Include(p => p.User)
+            var entity = await _context.vPlayerGameContext
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.GameId == gameId && p.UserId == userId, cancellationToken);
 

@@ -188,52 +188,6 @@ public sealed class GamesController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a new game with players and rules (public endpoint for initial game setup)
-    /// </summary>
-    //[AllowAnonymous]
-    //[HttpPost("start")]
-    //[ProducesResponseType(typeof(StartGameResponse), StatusCodes.Status200OK)]
-    //[ProducesResponseType(StatusCodes.Status400BadRequest)]
-    //public async Task<IActionResult> StartGame([FromBody] StartGameRequest request, CancellationToken cancellationToken)
-    //{
-    //    // Map request to domain
-    //    var players = request.Players.Select(p => (p.Username, p.AccessCode, p.IsCreator)).ToList();
-    //    var rules = request.Rules.Select(r => (r.Name, (RuleType)r.RuleType, r.ScoreDelta)).ToList();
-
-    //    var result = await _gameManager.StartGameAsync(
-    //        request.Name,
-    //        request.InitialScore,
-    //        players,
-    //        rules,
-    //        cancellationToken);
-
-    //    if (result.IsFailure)
-    //    {
-    //        return StatusCode((int)result.StatusCode, new ProblemDetails
-    //        {
-    //            Status = (int)result.StatusCode,
-    //            Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to start game",
-    //            Detail = string.Join("; ", result.Errors.Select(e => e.Message))
-    //        });
-    //    }
-
-    //    var startGameResult = result.Value!;
-
-    //    var response = new StartGameResponse
-    //    {
-    //        GameId = startGameResult.GameId,
-    //        Credentials = startGameResult.Credentials.Select(c => new PlayerCredentialDto
-    //        {
-    //            Username = c.Username,
-    //            AccessCode = c.AccessCode,
-    //            IsCreator = c.IsCreator
-    //        }).ToList()
-    //    };
-
-    //    return Ok(response);
-    //}
-
-    /// <summary>
     /// Gets the leaderboard for a game
     /// </summary>
     [HttpGet("{gameId}/leaderboard")]
@@ -252,11 +206,10 @@ public sealed class GamesController : ControllerBase
             });
         }
 
-        // MODIFICATO: Usare p.User?.Email invece di p.Username
         var response = result.Value!.Select(p => new LeaderboardPlayerDto
         {
             Id = p.Id,
-            Email = p.User?.Email ?? "N/A",  // ✅ CAMBIATO DA Username A Email
+            Email = p.User?.Email ?? "N/A",
             CurrentScore = p.CurrentScore,
             IsCreator = p.IsCreator
         }).ToList();
@@ -293,16 +246,15 @@ public sealed class GamesController : ControllerBase
             {
                 var playerResult = await _playerService.GetByIdAsync(assignment.AssignedToPlayerId, cancellationToken);
 
-                // MODIFICATO: Usare playerResult.Value!.User?.Email invece di playerResult.Value!.Username
                 var playerEmail = playerResult.IsSuccess
-                    ? playerResult.Value!.User?.Email ?? "N/A"  // ✅ CAMBIATO DA Username A Email
+                    ? playerResult.Value!.User?.Email ?? "N/A"
                     : "Unknown";
 
                 assignmentInfo = new RuleAssignmentInfoDto
                 {
                     RuleAssignmentId = assignment.Id,
                     AssignedToPlayerId = assignment.AssignedToPlayerId,
-                    AssignedToEmail = playerEmail,  // ✅ CAMBIATO DA AssignedToUsername A AssignedToEmail
+                    AssignedToEmail = playerEmail,
                     AssignedAt = assignment.AssignedAt.ToString("O")
                 };
             }
@@ -329,13 +281,37 @@ public sealed class GamesController : ControllerBase
     [HttpPost("{gameId}/rules/{ruleId}/assign")]
     [ProducesResponseType(typeof(AssignRuleResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AssignRule(int gameId, int ruleId, CancellationToken cancellationToken)
     {
-        var playerId = GetAuthenticatedPlayerId();
+        // Get player from userId + gameId
+        var playerResult = await GetPlayerForGameAsync(gameId, cancellationToken);
+        if (playerResult == null)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "User not authenticated",
+                Detail = "Invalid or missing user ID in token"
+            });
+        }
 
-        var result = await _ruleAssignmentService.AssignRuleAsync(gameId, ruleId, playerId, cancellationToken);
+        if (playerResult.IsFailure)
+        {
+            return StatusCode((int)playerResult.StatusCode, new ProblemDetails
+            {
+                Status = (int)playerResult.StatusCode,
+                Title = playerResult.Errors.FirstOrDefault()?.Message ?? "Player not found in this game",
+                Detail = "You must be a player in this game to assign rules"
+            });
+        }
+
+        var player = playerResult.Value!;
+
+        var result = await _ruleAssignmentService.AssignRuleAsync(ruleId, gameId, player.Id, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -370,15 +346,38 @@ public sealed class GamesController : ControllerBase
     [HttpPost("{gameId}/rules")]
     [ProducesResponseType(typeof(CreateRuleResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreateRule(int gameId, [FromBody] CreateRuleRequest request, CancellationToken cancellationToken)
     {
-        var creatorPlayerId = GetAuthenticatedPlayerId();
+        // Get player from userId + gameId
+        var playerResult = await GetPlayerForGameAsync(gameId, cancellationToken);
+        if (playerResult == null)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "User not authenticated",
+                Detail = "Invalid or missing user ID in token"
+            });
+        }
+
+        if (playerResult.IsFailure)
+        {
+            return StatusCode((int)playerResult.StatusCode, new ProblemDetails
+            {
+                Status = (int)playerResult.StatusCode,
+                Title = playerResult.Errors.FirstOrDefault()?.Message ?? "Player not found in this game",
+                Detail = "You must be a player in this game to create rules"
+            });
+        }
+
+        var player = playerResult.Value!;
 
         var result = await _ruleService.CreateRuleAsync(
             gameId,
-            creatorPlayerId,
+            player.Id,
             request.Name,
             (RuleType)request.RuleType,
             request.ScoreDelta,
@@ -415,17 +414,40 @@ public sealed class GamesController : ControllerBase
     /// </summary>
     [HttpPut("{gameId}/rules/{ruleId}")]
     [ProducesResponseType(typeof(UpdateRuleResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateRule(int gameId, int ruleId, [FromBody] UpdateRuleRequest request, CancellationToken cancellationToken)
     {
-        var creatorPlayerId = GetAuthenticatedPlayerId();
+        // Get player from userId + gameId
+        var playerResult = await GetPlayerForGameAsync(gameId, cancellationToken);
+        if (playerResult == null)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "User not authenticated",
+                Detail = "Invalid or missing user ID in token"
+            });
+        }
+
+        if (playerResult.IsFailure)
+        {
+            return StatusCode((int)playerResult.StatusCode, new ProblemDetails
+            {
+                Status = (int)playerResult.StatusCode,
+                Title = playerResult.Errors.FirstOrDefault()?.Message ?? "Player not found in this game",
+                Detail = "You must be a player in this game to update rules"
+            });
+        }
+
+        var player = playerResult.Value!;
 
         var result = await _ruleService.UpdateRuleAsync(
             ruleId,
             gameId,
-            creatorPlayerId,
+            player.Id,
             request.Name,
             (RuleType)request.RuleType,
             request.ScoreDelta,
@@ -476,7 +498,6 @@ public sealed class GamesController : ControllerBase
             });
         }
 
-        // Assume che result.Value sia IEnumerable<RuleAssignment>
         var response = new List<AssignmentHistoryDto>();
 
         foreach (var assignment in result.Value!)
@@ -484,9 +505,8 @@ public sealed class GamesController : ControllerBase
             var ruleResult = await _ruleService.GetByIdAsync(assignment.RuleId, cancellationToken);
             var playerResult = await _playerService.GetByIdAsync(assignment.AssignedToPlayerId, cancellationToken);
 
-            // MODIFICATO: Usare playerResult.Value!.User?.Email invece di playerResult.Value!.Username
             var playerEmail = playerResult.IsSuccess
-                ? playerResult.Value!.User?.Email ?? "N/A"  // ✅ CAMBIATO DA Username A Email
+                ? playerResult.Value!.User?.Email ?? "N/A"
                 : "Unknown";
 
             response.Add(new AssignmentHistoryDto
@@ -495,7 +515,7 @@ public sealed class GamesController : ControllerBase
                 RuleId = assignment.RuleId,
                 RuleName = ruleResult.IsSuccess ? ruleResult.Value!.Name : "Unknown",
                 AssignedToPlayerId = assignment.AssignedToPlayerId,
-                AssignedToEmail = playerEmail,  // ✅ CAMBIATO DA AssignedToUsername A AssignedToEmail
+                AssignedToEmail = playerEmail,
                 ScoreDeltaApplied = assignment.ScoreDeltaApplied,
                 AssignedAt = assignment.AssignedAt.ToString("O")
             });
@@ -503,7 +523,6 @@ public sealed class GamesController : ControllerBase
 
         return Ok(response);
     }
-
 
     /// <summary>
     /// Ends the game
@@ -553,13 +572,13 @@ public sealed class GamesController : ControllerBase
             Winner = new WinnerDto
             {
                 Id = winner.Id,
-                Email = winner.User?.Email ?? "N/A",  // ✅ CAMBIATO DA Username A Email
+                Email = winner.User?.Email ?? "N/A",
                 CurrentScore = winner.CurrentScore
             },
             Leaderboard = leaderboard.Select(p => new LeaderboardPlayerDto
             {
                 Id = p.Id,
-                Email = p.User?.Email ?? "N/A",  // ✅ CAMBIATO DA Username A Email
+                Email = p.User?.Email ?? "N/A",
                 CurrentScore = p.CurrentScore,
                 IsCreator = p.IsCreator
             }).ToList()
@@ -578,11 +597,15 @@ public sealed class GamesController : ControllerBase
     }
 
     /// <summary>
-    /// Helper method to extract authenticated player ID from JWT token (for player-specific endpoints)
+    /// Helper method to get the player for the authenticated user in a specific game.
+    /// Returns null if user is not authenticated, or AppResult with failure if player not found.
     /// </summary>
-    private int GetAuthenticatedPlayerId()
+    private async Task<Domain.Results.AppResult<Player>?> GetPlayerForGameAsync(int gameId, CancellationToken cancellationToken)
     {
-        var playerIdClaim = User.FindFirst("playerId")?.Value;
-        return int.TryParse(playerIdClaim, out var playerId) ? playerId : 0;
+        var userId = GetAuthenticatedUserId();
+        if (userId == 0)
+            return null;
+
+        return await _playerService.GetByGameAndUserAsync(gameId, userId, cancellationToken);
     }
 }

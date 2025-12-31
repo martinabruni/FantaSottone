@@ -122,4 +122,17 @@ internal sealed class PlayerService : IPlayerService
             return AppResult<IEnumerable<Player>>.InternalServerError($"Service error: {ex.Message}");
         }
     }
+
+    public async Task<AppResult<Player>> GetByGameAndUserAsync(int gameId, int userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _playerRepository.GetByGameAndUserAsync(gameId, userId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error getting player for game {GameId} and user {UserId}", gameId, userId);
+            return AppResult<Player>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
 }

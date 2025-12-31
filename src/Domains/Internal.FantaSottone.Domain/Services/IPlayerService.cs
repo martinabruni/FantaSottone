@@ -17,4 +17,9 @@ public interface IPlayerService : IService<Player, int>
     /// Gets players by game ID
     /// </summary>
     Task<AppResult<IEnumerable<Player>>> GetByGameIdAsync(int gameId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a player by game ID and user ID
+    /// </summary>
+    Task<AppResult<Player>> GetByGameAndUserAsync(int gameId, int userId, CancellationToken cancellationToken = default);
 }
