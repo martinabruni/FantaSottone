@@ -60,6 +60,7 @@ public sealed class LeaderboardPlayerDto
     public string Email { get; set; } = string.Empty;  // Cambiato da Username a Email
     public int CurrentScore { get; set; }
     public bool IsCreator { get; set; }
+    public int GameStatus { get; set; }  // Status della partita (1=Draft, 2=Started, 3=Ended)
 }
 
 public sealed class RuleWithAssignmentDto

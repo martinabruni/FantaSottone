@@ -64,11 +64,13 @@ internal sealed class UserRepository : BaseRepository<User, UserEntity, int>, IU
     {
         try
         {
+            // Filter: show Draft games only to creators, Started/Ended games to all invited players
             var games = await _context.PlayerEntity
                 .Where(p => p.UserId == userId)
                 .Include(p => p.Game)
                 .ThenInclude(g => g.CreatorPlayer)
                 .ThenInclude(cp => cp.User)
+                .Where(p => p.Game.Status != 1 || p.IsCreator)  // Status 1 = Draft: only creators can see draft games
                 .Select(p => new GameListItemDto
                 {
                     GameId = p.Game.Id,

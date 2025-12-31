@@ -14,17 +14,19 @@ import { usePolling } from "@/hooks/usePolling";
 import { useLeaderboard } from "@/providers/leaderboard/LeaderboardProvider";
 import { GameStatus } from "@/types/entities";
 import { LoadingState } from "@/components/common/LoadingState";
+import { Play } from "lucide-react";
 
 export function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const { session, isAuthenticated } = useAuth();
   const { currentPlayer, joinGame } = useGame();
-  const { endGame } = useGames();
+  const { endGame, startGame } = useGames();
   const { getLeaderboard } = useLeaderboard();
   const { toast } = useToast();
   const [endGameDialogOpen, setEndGameDialogOpen] = useState(false);
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
   const [joiningGame, setJoiningGame] = useState(false);
+  const [startingGame, setStartingGame] = useState(false);
 
   // Auto-join game if not already joined
   useEffect(() => {
@@ -108,14 +110,53 @@ export function GamePage() {
     }
   };
 
+  const handleStartGame = async () => {
+    setStartingGame(true);
+    try {
+      const response = await startGame(parseInt(gameId));
+      setGameStatus(response.game.status);
+      toast({
+        variant: "success",
+        title: "Partita avviata!",
+        description:
+          "La partita è ora in corso. Gli invitati possono unirsi e assegnare le regole.",
+      });
+    } catch (error) {
+      toast({
+        variant: "error",
+        title: "Errore",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Impossibile avviare la partita",
+      });
+    } finally {
+      setStartingGame(false);
+    }
+  };
+
   const isCreator = currentPlayer.isCreator;
-  const canEndGame = isCreator && gameStatus !== GameStatus.Ended;
+  const canEndGame =
+    isCreator &&
+    gameStatus !== GameStatus.Ended &&
+    gameStatus !== GameStatus.Draft;
+  const canStartGame = isCreator && gameStatus === GameStatus.Draft;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <GameStatusBar onStatusChange={setGameStatus} />
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
+        {canStartGame && (
+          <ActionButton
+            actionType="success"
+            onClick={handleStartGame}
+            disabled={startingGame}
+          >
+            <Play className="mr-2 h-4 w-4" />
+            {startingGame ? "Avvio in corso..." : "Inizia partita"}
+          </ActionButton>
+        )}
         {canEndGame && (
           <ActionButton
             actionType="error"

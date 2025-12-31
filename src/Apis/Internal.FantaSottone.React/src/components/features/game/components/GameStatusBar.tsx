@@ -4,7 +4,7 @@ import { usePolling } from "@/hooks/usePolling";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GameStatus } from "@/types/entities";
-import { Crown, Trophy } from "lucide-react";
+import { Crown, Trophy, FileEdit } from "lucide-react";
 import { useEffect } from "react";
 
 interface GameStatusBarProps {
@@ -28,9 +28,7 @@ export function GameStatusBar({ onStatusChange }: GameStatusBarProps) {
   );
 
   const gameStatus =
-    leaderboard && leaderboard.length > 0
-      ? (leaderboard[0] as any).gameStatus
-      : null;
+    leaderboard && leaderboard.length > 0 ? leaderboard[0].gameStatus : null;
 
   useEffect(() => {
     if (gameStatus && onStatusChange) {
@@ -50,7 +48,11 @@ export function GameStatusBar({ onStatusChange }: GameStatusBarProps) {
       : "Terminata";
 
   const statusVariant =
-    gameStatus === GameStatus.Ended ? "default" : "secondary";
+    gameStatus === GameStatus.Draft
+      ? "outline"
+      : gameStatus === GameStatus.Ended
+      ? "default"
+      : "secondary";
 
   return (
     <Card>
@@ -61,6 +63,20 @@ export function GameStatusBar({ onStatusChange }: GameStatusBarProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {gameStatus === GameStatus.Draft && (
+          <div className="flex items-center gap-3 p-4 bg-yellow-50 rounded-md border border-yellow-200">
+            <FileEdit className="h-6 w-6 text-yellow-600" />
+            <div className="flex-1">
+              <p className="font-semibold text-yellow-800">
+                Partita in preparazione
+              </p>
+              <p className="text-sm text-yellow-700">
+                Il creatore può aggiungere giocatori, modificare le regole e
+                avviare la partita quando è pronto.
+              </p>
+            </div>
+          </div>
+        )}
         {gameStatus === GameStatus.Ended && winner && (
           <div className="flex items-center gap-3 p-4 bg-primary/10 rounded-md border border-primary/20">
             <Crown className="h-6 w-6 text-yellow-500" />

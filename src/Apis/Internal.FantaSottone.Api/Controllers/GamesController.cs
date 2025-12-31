@@ -151,6 +151,54 @@ public sealed class GamesController : ControllerBase
     }
 
     /// <summary>
+    /// Starts a game (transitions from Draft to Started status, creator only)
+    /// </summary>
+    [HttpPost("{gameId}/start")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> StartGame(int gameId, CancellationToken cancellationToken)
+    {
+        var userId = GetAuthenticatedUserId();
+        if (userId == 0)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Status = StatusCodes.Status401Unauthorized,
+                Title = "User not authenticated",
+                Detail = "Invalid or missing user ID in token"
+            });
+        }
+
+        var result = await _gameManager.StartGameAsync(gameId, userId, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return StatusCode((int)result.StatusCode, new ProblemDetails
+            {
+                Status = (int)result.StatusCode,
+                Title = result.Errors.FirstOrDefault()?.Message ?? "Failed to start game",
+                Detail = string.Join("; ", result.Errors.Select(e => e.Message))
+            });
+        }
+
+        var game = result.Value!;
+
+        return Ok(new
+        {
+            message = "Game started successfully",
+            game = new
+            {
+                id = game.Id,
+                name = game.Name,
+                status = (int)game.Status,
+                initialScore = game.InitialScore
+            }
+        });
+    }
+
+    /// <summary>
     /// Invites a registered user to join a game (creator only)
     /// </summary>
     [HttpPost("{gameId}/invite")]
@@ -206,12 +254,17 @@ public sealed class GamesController : ControllerBase
             });
         }
 
+        // Get game status to include in response
+        var gameResult = await _gameManager.GetByIdAsync(gameId, cancellationToken);
+        var gameStatus = gameResult.IsSuccess ? (int)gameResult.Value!.Status : (int)GameStatus.Started;
+
         var response = result.Value!.Select(p => new LeaderboardPlayerDto
         {
             Id = p.Id,
             Email = p.User?.Email ?? "N/A",
             CurrentScore = p.CurrentScore,
-            IsCreator = p.IsCreator
+            IsCreator = p.IsCreator,
+            GameStatus = gameStatus
         }).ToList();
 
         return Ok(response);

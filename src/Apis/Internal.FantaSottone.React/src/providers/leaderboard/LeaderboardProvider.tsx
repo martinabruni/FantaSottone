@@ -9,6 +9,7 @@ export interface LeaderboardPlayerDto {
   email: string; // ✅ CAMBIATO: username -> email
   currentScore: number;
   isCreator: boolean;
+  gameStatus: number; // Status della partita (1=Draft, 2=Started, 3=Ended)
 }
 
 interface LeaderboardContextValue {

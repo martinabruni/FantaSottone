@@ -81,6 +81,16 @@ export interface EndGameResponse {
   leaderboard: LeaderboardPlayerDto[];
 }
 
+export interface StartGameResponse {
+  message: string;
+  game: {
+    id: number;
+    name: string;
+    status: number;
+    initialScore: number;
+  };
+}
+
 interface GamesContextValue {
   createGame: (request: CreateGameRequest) => Promise<CreateGameResponse>;
   joinGame: (gameId: number) => Promise<JoinGameResponse>;
@@ -90,6 +100,7 @@ interface GamesContextValue {
   ) => Promise<{ message: string; playerId: number }>;
   getGameStatus: (gameId: number) => Promise<GameStatusResponse>;
   endGame: (gameId: number) => Promise<EndGameResponse>;
+  startGame: (gameId: number) => Promise<StartGameResponse>;
 }
 
 const GamesContext = createContext<GamesContextValue | undefined>(undefined);
@@ -135,12 +146,20 @@ export function GamesProvider({ children }: { children: React.ReactNode }) {
     return transport.post<{}, EndGameResponse>(`/api/Games/${gameId}/end`, {});
   };
 
+  const startGame = async (gameId: number): Promise<StartGameResponse> => {
+    return transport.post<{}, StartGameResponse>(
+      `/api/Games/${gameId}/start`,
+      {}
+    );
+  };
+
   const value: GamesContextValue = {
     createGame,
     joinGame,
     invitePlayer,
     getGameStatus,
     endGame,
+    startGame,
   };
 
   return (

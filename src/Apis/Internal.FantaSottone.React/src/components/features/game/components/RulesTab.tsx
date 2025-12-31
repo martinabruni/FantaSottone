@@ -187,12 +187,14 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
   // ✅ FIXED: Use currentPlayer.isCreator instead of session.role
   const isCreator = currentPlayer?.isCreator ?? false;
   const isGameEnded = gameStatus === GameStatus.Ended;
+  const isGameDraft = gameStatus === GameStatus.Draft;
+  const isGameStarted = gameStatus === GameStatus.Started;
 
   return (
     <>
       <div className="space-y-4">
-        {/* ✅ Creator can create rules even during game */}
-        {isCreator && (
+        {/* Creator can create rules in Draft state, or during Started state */}
+        {isCreator && !isGameEnded && (
           <div className="flex justify-end">
             <ActionButton
               actionType="success"
@@ -202,6 +204,15 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
               <Plus className="h-4 w-4 mr-1" />
               Crea nuova regola
             </ActionButton>
+          </div>
+        )}
+
+        {isGameDraft && !isCreator && (
+          <div className="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-yellow-800">
+              La partita non è ancora iniziata. Le regole saranno disponibili
+              una volta avviata dal creatore.
+            </p>
           </div>
         )}
 
@@ -215,8 +226,10 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
             const isAssigned = !!assignment;
             const isAssignedToMe =
               assignment?.assignedToPlayerId === currentPlayer?.playerId;
-            const canAssign = !isAssigned && !assigning;
-            // ✅ Unassigned rules can be edited/deleted even during game
+            // Rules can only be assigned when game is Started
+            const canAssign = isGameStarted && !isAssigned && !assigning;
+            // In Draft: creator can edit/delete all rules
+            // In Started: creator can edit/delete only unassigned rules
             const canEdit = isCreator && !isAssigned && !isGameEnded;
             const canDelete = isCreator && !isAssigned && !isGameEnded;
 
@@ -289,18 +302,23 @@ export function RulesTab({ gameStatus }: RulesTabProps) {
                     </ActionButton>
                   )}
 
-                  <ActionButton
-                    onClick={() => handleAssign(rule.id)}
-                    disabled={!canAssign || assigning === rule.id}
-                  >
-                    {assigning === rule.id
-                      ? "Assegnando..."
-                      : isAssignedToMe
-                      ? "Assegnata a te"
-                      : isAssigned
-                      ? "Assegnata"
-                      : "Assegna a me"}
-                  </ActionButton>
+                  {/* Only show assign button when game is started or ended */}
+                  {!isGameDraft && (
+                    <ActionButton
+                      onClick={() => handleAssign(rule.id)}
+                      disabled={!canAssign || assigning === rule.id}
+                    >
+                      {assigning === rule.id
+                        ? "Assegnando..."
+                        : isAssignedToMe
+                        ? "Assegnata a te"
+                        : isAssigned
+                        ? "Assegnata"
+                        : isGameEnded
+                        ? "Partita terminata"
+                        : "Assegna a me"}
+                    </ActionButton>
+                  )}
                 </div>
               </div>
             );

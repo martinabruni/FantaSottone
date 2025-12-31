@@ -127,7 +127,7 @@ internal sealed class GameManager : IGameManager
             {
                 Name = name,
                 InitialScore = initialScore,
-                Status = GameStatus.Started,
+                Status = GameStatus.Draft,  // Start in Draft status, creator must explicitly start the game
                 CreatorPlayerId = null, // Will be set after creating creator player
                 WinnerPlayerId = null,
                 CreatedAt = DateTime.UtcNow,
@@ -533,6 +533,44 @@ internal sealed class GameManager : IGameManager
         {
             _logger.LogError(ex, "Service error joining game {GameId} for user {UserId}", gameId, userId);
             return AppResult<Player>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<Game>> StartGameAsync(int gameId, int requestingUserId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var gameResult = await _gameRepository.GetByIdAsync(gameId, cancellationToken);
+            if (gameResult.IsFailure)
+                return AppResult<Game>.NotFound($"Game with ID {gameId} not found");
+
+            var game = gameResult.Value!;
+
+            // Only draft games can be started
+            if (game.Status != GameStatus.Draft)
+            {
+                _logger.LogWarning("Attempt to start game {GameId} that is not in Draft status (current: {Status})", gameId, game.Status);
+                return AppResult<Game>.BadRequest("Solo le partite in stato bozza possono essere avviate");
+            }
+
+            // Only creator can start the game
+            var isCreatorResult = await _gameRepository.IsUserCreatorAsync(gameId, requestingUserId, cancellationToken);
+            if (isCreatorResult.IsFailure || !isCreatorResult.Value!)
+            {
+                _logger.LogWarning("User {UserId} attempted to start game {GameId} but is not creator", requestingUserId, gameId);
+                return AppResult<Game>.Forbidden("Solo il creatore può avviare la partita");
+            }
+
+            game.Status = GameStatus.Started;
+            game.UpdatedAt = DateTime.UtcNow;
+
+            _logger.LogInformation("Game {GameId} started by user {UserId}", gameId, requestingUserId);
+            return await _gameRepository.UpdateAsync(game, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error starting game {GameId}", gameId);
+            return AppResult<Game>.InternalServerError($"Service error: {ex.Message}");
         }
     }
 }

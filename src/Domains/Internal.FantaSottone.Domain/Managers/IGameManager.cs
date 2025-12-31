@@ -69,4 +69,9 @@ public interface IGameManager
     /// Joins a game for the current user (activates the player for this session)
     /// </summary>
     Task<AppResult<Player>> JoinGameAsync(int gameId, int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Starts a game (transitions from Draft to Started status, creator only)
+    /// </summary>
+    Task<AppResult<Game>> StartGameAsync(int gameId, int requestingUserId, CancellationToken cancellationToken = default);
 }
