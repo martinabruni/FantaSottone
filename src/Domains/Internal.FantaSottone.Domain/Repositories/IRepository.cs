@@ -36,5 +36,5 @@ public interface IRepository<TEntity, TKey>
     /// <summary>
     /// Deletes an entity and saves changes
     /// </summary>
-    Task<AppResult> DeleteAsync(TEntity entity, CancellationToken cancellationToken = default);
+    Task<AppResult> DeleteAsync(TKey key, CancellationToken cancellationToken = default);
 }

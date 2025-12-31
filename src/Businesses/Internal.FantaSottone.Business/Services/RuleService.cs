@@ -66,11 +66,7 @@ internal sealed class RuleService : IRuleService
 
     public async Task<AppResult> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
-        var ruleResult = await _ruleRepository.GetByIdAsync(id, cancellationToken);
-        if (ruleResult.IsFailure)
-            return AppResult.NotFound($"Rule with ID {id} not found");
-
-        var deleteResult = await _ruleRepository.DeleteAsync(ruleResult.Value!, cancellationToken);
+        var deleteResult = await _ruleRepository.DeleteAsync(id, cancellationToken);
         if (deleteResult.IsFailure)
             return AppResult.InternalServerError($"Failed to delete rule: {deleteResult.Errors.FirstOrDefault()?.Message}");
 
@@ -109,7 +105,17 @@ internal sealed class RuleService : IRuleService
         return AppResult<IEnumerable<Rule>>.Success(rulesResult.Value!);
     }
 
-    public async Task<AppResult<Rule>> UpdateRuleAsync(int ruleId, int gameId, int creatorPlayerId, string name, RuleType ruleType, int scoreDelta, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Updates a rule if not yet assigned (creator only)
+    /// </summary>
+    /// <param name="ruleId">The rule ID to update</param>
+    /// <param name="gameId">The game ID</param>
+    /// <param name="requestingPlayerId">The Player.Id of the requesting user (NOT UserId!)</param>
+    /// <param name="name">New rule name</param>
+    /// <param name="ruleType">New rule type</param>
+    /// <param name="scoreDelta">New score delta</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public async Task<AppResult<Rule>> UpdateRuleAsync(int ruleId, int gameId, int requestingPlayerId, string name, RuleType ruleType, int scoreDelta, CancellationToken cancellationToken = default)
     {
         var ruleResult = await _ruleRepository.GetByIdAsync(ruleId, cancellationToken);
         if (ruleResult.IsFailure)
@@ -120,8 +126,9 @@ internal sealed class RuleService : IRuleService
             return AppResult<Rule>.NotFound($"Game with ID {gameId} not found");
 
         // Check if requester is creator
+        // IMPORTANT: game.CreatorPlayerId is a Player.Id, so we compare with requestingPlayerId (also Player.Id)
         var game = gameResult.Value!;
-        if (game.CreatorPlayerId != creatorPlayerId)
+        if (game.CreatorPlayerId != requestingPlayerId)
             return AppResult<Rule>.Forbidden("Only the game creator can modify rules");
 
         // Check if rule is already assigned
@@ -142,15 +149,25 @@ internal sealed class RuleService : IRuleService
         return AppResult<Rule>.Success(updateResult.Value!);
     }
 
-    public async Task<AppResult<Rule>> CreateRuleAsync(int gameId, int creatorPlayerId, string name, RuleType ruleType, int scoreDelta, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Creates a new rule for a game (creator only)
+    /// </summary>
+    /// <param name="gameId">The game ID</param>
+    /// <param name="requestingPlayerId">The Player.Id of the requesting user (NOT UserId!)</param>
+    /// <param name="name">Rule name</param>
+    /// <param name="ruleType">Rule type (Bonus/Malus)</param>
+    /// <param name="scoreDelta">Score delta</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public async Task<AppResult<Rule>> CreateRuleAsync(int gameId, int requestingPlayerId, string name, RuleType ruleType, int scoreDelta, CancellationToken cancellationToken = default)
     {
         var gameResult = await _gameRepository.GetByIdAsync(gameId, cancellationToken);
         if (gameResult.IsFailure)
             return AppResult<Rule>.NotFound($"Game with ID {gameId} not found");
 
         // Check if requester is creator
+        // IMPORTANT: game.CreatorPlayerId is a Player.Id, so we compare with requestingPlayerId (also Player.Id)
         var game = gameResult.Value!;
-        if (game.CreatorPlayerId != creatorPlayerId)
+        if (game.CreatorPlayerId != requestingPlayerId)
             return AppResult<Rule>.Forbidden("Only the game creator can create rules");
 
         var rule = new Rule
@@ -170,7 +187,14 @@ internal sealed class RuleService : IRuleService
         return AppResult<Rule>.Created(addResult.Value!);
     }
 
-    public async Task<AppResult> DeleteRuleAsync(int ruleId, int gameId, int creatorPlayerId, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Deletes a rule if not yet assigned (creator only)
+    /// </summary>
+    /// <param name="ruleId">The rule ID to delete</param>
+    /// <param name="gameId">The game ID</param>
+    /// <param name="requestingPlayerId">The Player.Id of the requesting user (NOT UserId!)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    public async Task<AppResult> DeleteRuleAsync(int ruleId, int gameId, int requestingPlayerId, CancellationToken cancellationToken = default)
     {
         var ruleResult = await _ruleRepository.GetByIdAsync(ruleId, cancellationToken);
         if (ruleResult.IsFailure)
@@ -185,8 +209,9 @@ internal sealed class RuleService : IRuleService
             return AppResult.NotFound($"Game with ID {gameId} not found");
 
         // Check if requester is creator
+        // IMPORTANT: game.CreatorPlayerId is a Player.Id, so we compare with requestingPlayerId (also Player.Id)
         var game = gameResult.Value!;
-        if (game.CreatorPlayerId != creatorPlayerId)
+        if (game.CreatorPlayerId != requestingPlayerId)
             return AppResult.Forbidden("Only the game creator can delete rules");
 
         // Check if rule is already assigned
@@ -194,7 +219,7 @@ internal sealed class RuleService : IRuleService
         if (isAssignedResult.IsSuccess && isAssignedResult.Value)
             return AppResult.Conflict("Cannot delete a rule that has already been assigned", "RULE_ALREADY_ASSIGNED");
 
-        var deleteResult = await _ruleRepository.DeleteAsync(rule, cancellationToken);
+        var deleteResult = await _ruleRepository.DeleteAsync(ruleId, cancellationToken);
         if (deleteResult.IsFailure)
             return AppResult.InternalServerError($"Failed to delete rule: {deleteResult.Errors.FirstOrDefault()?.Message}");
 

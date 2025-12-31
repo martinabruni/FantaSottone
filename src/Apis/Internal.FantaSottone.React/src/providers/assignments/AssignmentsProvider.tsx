@@ -1,12 +1,21 @@
 import React, { createContext, useContext, useMemo } from "react";
-import { AssignmentHistoryEntry, GameStatusResponse } from "@/types/dto";
 import { ITransport } from "@/lib/http/Transport";
 import { createTransport } from "@/lib/http/transportFactory";
 import { useAuth } from "../auth/AuthProvider";
 
+// DTOs
+export interface AssignmentAuditDto {
+  id: number;
+  ruleId: number;
+  ruleName: string;
+  assignedToPlayerId: number;
+  assignedToUsername: string;
+  scoreDeltaApplied: number;
+  assignedAt: string;
+}
+
 interface AssignmentsContextValue {
-  getAssignments: (gameId: number) => Promise<AssignmentHistoryEntry[]>;
-  getGameStatus: (gameId: number) => Promise<GameStatusResponse>;
+  getAssignments: (gameId: number) => Promise<AssignmentAuditDto[]>;
 }
 
 const AssignmentsContext = createContext<AssignmentsContextValue | undefined>(
@@ -26,19 +35,14 @@ export function AssignmentsProvider({
 
   const getAssignments = async (
     gameId: number
-  ): Promise<AssignmentHistoryEntry[]> => {
-    return transport.get<AssignmentHistoryEntry[]>(
-      `/api/games/${gameId}/assignments`
+  ): Promise<AssignmentAuditDto[]> => {
+    return transport.get<AssignmentAuditDto[]>(
+      `/api/Games/${gameId}/assignments`
     );
-  };
-
-  const getGameStatus = async (gameId: number): Promise<GameStatusResponse> => {
-    return transport.get<GameStatusResponse>(`/api/games/${gameId}/status`);
   };
 
   const value: AssignmentsContextValue = {
     getAssignments,
-    getGameStatus,
   };
 
   return (

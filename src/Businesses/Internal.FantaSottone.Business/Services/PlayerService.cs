@@ -80,29 +80,12 @@ internal sealed class PlayerService : IPlayerService
     {
         try
         {
-            var playerResult = await _playerRepository.GetByIdAsync(id, cancellationToken);
-            if (playerResult.IsFailure)
-                return AppResult.NotFound(playerResult.Errors.First().Message);
-
-            return await _playerRepository.DeleteAsync(playerResult.Value!, cancellationToken);
+            return await _playerRepository.DeleteAsync(id, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Service error deleting player {PlayerId}", id);
             return AppResult.InternalServerError($"Service error: {ex.Message}");
-        }
-    }
-
-    public async Task<AppResult<Player>> GetByCredentialsAsync(string username, string accessCode, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await _playerRepository.GetByCredentialsAsync(username, accessCode, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Service error getting player by credentials for username {Username}", username);
-            return AppResult<Player>.InternalServerError($"Service error: {ex.Message}");
         }
     }
 
@@ -137,6 +120,19 @@ internal sealed class PlayerService : IPlayerService
         {
             _logger.LogError(ex, "Service error getting players for game {GameId}", gameId);
             return AppResult<IEnumerable<Player>>.InternalServerError($"Service error: {ex.Message}");
+        }
+    }
+
+    public async Task<AppResult<Player>> GetByGameAndUserAsync(int gameId, int userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _playerRepository.GetByGameAndUserAsync(gameId, userId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Service error getting player for game {GameId} and user {UserId}", gameId, userId);
+            return AppResult<Player>.InternalServerError($"Service error: {ex.Message}");
         }
     }
 }

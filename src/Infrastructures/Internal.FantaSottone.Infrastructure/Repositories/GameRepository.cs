@@ -39,4 +39,26 @@ internal sealed class GameRepository : BaseRepository<Game, GameEntity, int>, IG
             return AppResult<Game>.InternalServerError($"Error retrieving game with details: {ex.Message}");
         }
     }
+
+    public async Task<AppResult<bool>> IsUserCreatorAsync(int gameId, int userId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var game = await _context.GameEntity
+                .Include(g => g.CreatorPlayer)
+                .FirstOrDefaultAsync(g => g.Id == gameId, cancellationToken);
+
+            if (game == null)
+                return AppResult<bool>.NotFound($"Game with ID {gameId} not found");
+
+            var isCreator = game.CreatorPlayer?.UserId == userId;
+            return AppResult<bool>.Success(isCreator);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking if user {UserId} is creator of game {GameId}", userId, gameId);
+            return AppResult<bool>.InternalServerError($"Error checking creator status: {ex.Message}");
+        }
+    }
 }
+
